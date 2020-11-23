@@ -51,17 +51,6 @@ module Scoped_location = struct
     | Empty -> s
     | Cons {str; _} -> str ^ sep ^ s
 
-  let string_of_scopes =
-    let module StringSet = Set.Make (String) in
-    let repr = ref StringSet.empty in
-    fun scopes ->
-      let res = string_of_scopes scopes in
-      match StringSet.find_opt res !repr with
-      | Some x -> x
-      | None ->
-        repr := StringSet.add res !repr;
-        res
-
   let enter_anonymous_function ~scopes =
     let str = str_fun scopes in
     Cons {item = Sc_anonymous_function; str; str_fun = str}
@@ -87,6 +76,17 @@ module Scoped_location = struct
     | Empty -> "<unknown>"
     | Cons {str; _} -> str
 
+  let string_of_scopes =
+    let module StringSet = Set.Make (String) in
+    let repr = ref StringSet.empty in
+    fun scopes ->
+      let res = string_of_scopes scopes in
+      match StringSet.find_opt res !repr with
+      | Some x -> x
+      | None ->
+        repr := StringSet.add res !repr;
+        res
+  
   type t =
     | Loc_unknown
     | Loc_known of
