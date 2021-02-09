@@ -15,6 +15,8 @@
 
 (* Introduction of closures, uncurrying, recognition of direct calls *)
 
+[@@@ocaml.warning "-9"]
+
 open Misc
 open Asttypes
 open Primitive
