@@ -24,7 +24,6 @@ type call_kind =
 type const =
   | Int of int
   | Char of char
-  | Const_pointer of int
 
 type apply = {
   func : Variable.t;
@@ -33,6 +32,7 @@ type apply = {
   dbg : Debuginfo.t;
   inline : Lambda.inline_attribute;
   specialise : Lambda.specialise_attribute;
+  probe : Lambda.probe;
 }
 
 type assign = {
@@ -192,7 +192,7 @@ let rec lam ppf (flam : t) =
   match flam with
   | Var (id) ->
       Variable.print ppf id
-  | Apply({func; args; kind; inline; dbg}) ->
+  | Apply({func; args; kind; inline; probe; dbg}) ->
     let direct ppf () =
       match kind with
       | Indirect -> ()
@@ -206,7 +206,12 @@ let rec lam ppf (flam : t) =
       | Unroll i -> fprintf ppf "<unroll %i>" i
       | Default_inline -> ()
     in
-    fprintf ppf "@[<2>(apply%a%a<%s>@ %a%a)@]" direct () inline ()
+    let probe ppf () =
+      match probe with
+      | None -> ()
+      | Some {name} -> fprintf ppf "<probe %s>" name
+    in
+    fprintf ppf "@[<2>(apply%a%a%a<%s>@ %a%a)@]" direct () inline () probe ()
       (Debuginfo.to_string dbg)
       Variable.print func Variable.print_list args
   | Assign { being_assigned; new_value; } ->
@@ -428,7 +433,6 @@ and print_const ppf (c : const) =
   match c with
   | Int n -> fprintf ppf "%i" n
   | Char c -> fprintf ppf "%C" c
-  | Const_pointer n -> fprintf ppf "%ia" n
 
 let print_function_declarations ppf (fd : function_declarations) =
   let funs ppf =
@@ -1189,11 +1193,8 @@ let compare_const (c1:const) (c2:const) =
   match c1, c2 with
   | Int i1, Int i2 -> compare i1 i2
   | Char i1, Char i2 -> Char.compare i1 i2
-  | Const_pointer i1, Const_pointer i2 -> compare i1 i2
-  | Int _, (Char _ | Const_pointer _) -> -1
-  | (Char _ | Const_pointer _), Int _ -> 1
-  | Char _, Const_pointer _ -> -1
-  | Const_pointer _, Char _ -> 1
+  | Int _, Char _ -> -1
+  | Char _, Int _ -> 1
 
 let compare_constant_defining_value_block_field
     (c1:constant_defining_value_block_field)

@@ -232,7 +232,6 @@ let to_clambda_const env (const : Flambda.constant_defining_value_block_field)
   | Symbol symbol -> to_clambda_symbol' env symbol
   | Const (Int i) -> Uconst_int i
   | Const (Char c) -> Uconst_int (Char.code c)
-  | Const (Const_pointer i) -> Uconst_ptr i
 
 let rec to_clambda t env (flam : Flambda.t) : Clambda.ulambda =
   match flam with
@@ -260,7 +259,7 @@ let rec to_clambda t env (flam : Flambda.t) : Clambda.ulambda =
         defs
     in
     Uletrec (defs, to_clambda t env body)
-  | Apply { func; args; kind = Direct direct_func; dbg = dbg } ->
+  | Apply { func; args; kind = Direct direct_func; probe; dbg = dbg; } ->
     (* The closure _parameter_ of the function is added by cmmgen.
        At the call site, for a direct call, the closure argument must be
        explicitly added (by [to_clambda_direct_apply]); there is no special
@@ -268,11 +267,13 @@ let rec to_clambda t env (flam : Flambda.t) : Clambda.ulambda =
        For an indirect call, we do not need to do anything here; Cmmgen will
        do the equivalent of the previous paragraph when it generates a direct
        call to [caml_apply]. *)
-    to_clambda_direct_apply t func args direct_func dbg env
-  | Apply { func; args; kind = Indirect; dbg = dbg } ->
+    to_clambda_direct_apply t func args direct_func probe dbg env
+  | Apply { func; args; kind = Indirect; probe = None; dbg = dbg } ->
     let callee = subst_var env func in
     Ugeneric_apply (check_closure t callee (Flambda.Expr (Var func)),
       subst_vars env args, dbg)
+  | Apply { probe = Some {name}; _ } ->
+    Misc.fatal_errorf "Cannot apply indirect handler for probe %s" name ()
   | Switch (arg, sw) ->
     let aux () : Clambda.ulambda =
       let const_index, const_actions =
@@ -357,7 +358,6 @@ let rec to_clambda t env (flam : Flambda.t) : Clambda.ulambda =
 and to_clambda_named t env var (named : Flambda.named) : Clambda.ulambda =
   match named with
   | Symbol sym -> to_clambda_symbol env sym
-  | Const (Const_pointer n) -> Uconst (Uconst_ptr n)
   | Const (Int n) -> Uconst (Uconst_int n)
   | Const (Char c) -> Uconst (Uconst_int (Char.code c))
   | Allocated_const _ ->
@@ -447,7 +447,8 @@ and to_clambda_switch t env cases num_keys default =
   | [| |] -> [| |], [| |]  (* May happen when [default] is [None]. *)
   | _ -> index, actions
 
-and to_clambda_direct_apply t func args direct_func dbg env : Clambda.ulambda =
+and to_clambda_direct_apply t func args direct_func probe dbg env
+  : Clambda.ulambda =
   let closed = is_function_constant t direct_func in
   let label = Compilenv.function_label direct_func in
   let uargs =
@@ -457,7 +458,7 @@ and to_clambda_direct_apply t func args direct_func dbg env : Clambda.ulambda =
        dropping any side effects.) *)
     if closed then uargs else uargs @ [subst_var env func]
   in
-  Udirect_apply (label, uargs, dbg)
+  Udirect_apply (label, uargs, probe, dbg)
 
 (* Describe how to build a runtime closure block that corresponds to the
    given Flambda set of closures.
@@ -612,7 +613,7 @@ let to_clambda_initialize_symbol t env symbol fields : Clambda.ulambda =
       Debuginfo.none)
   in
   match fields with
-  | [] -> Uconst (Uconst_ptr 0)
+  | [] -> Uconst (Uconst_int 0)
   | h :: t ->
     List.fold_left (fun acc (p, field) ->
         Clambda.Usequence (build_setfield (p, field), acc))
@@ -681,7 +682,6 @@ let to_clambda_program t env constants (program : Flambda.program) =
                   match const with
                   | Int i -> i
                   | Char c -> Char.code c
-                  | Const_pointer i -> i
                 in
                 Some (Clambda.Uconst_field_int n)
             | Some (Flambda.Symbol sym) ->
@@ -705,7 +705,7 @@ let to_clambda_program t env constants (program : Flambda.program) =
       let e2, constants, preallocated_blocks = loop env constants program in
       Usequence (e1, e2), constants, preallocated_blocks
     | End _ ->
-      Uconst (Uconst_ptr 0), constants, []
+      Uconst (Uconst_int 0), constants, []
   in
   loop env constants program.program_body
 

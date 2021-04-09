@@ -35,7 +35,7 @@ let remove_params unused (fun_decl: Flambda.function_declaration)
   in
   let body =
     List.fold_left (fun body param ->
-        Flambda.create_let (Parameter.var param) (Const (Const_pointer 0)) body)
+        Flambda.create_let (Parameter.var param) (Const (Int 0)) body)
       fun_decl.body
       unused_params
   in
@@ -94,6 +94,7 @@ let make_stub unused var (fun_decl : Flambda.function_declaration)
       dbg = fun_decl.dbg;
       inline = Default_inline;
       specialise = Default_specialise;
+      probe = None;
     }
   in
   let function_decl =

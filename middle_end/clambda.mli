@@ -34,7 +34,6 @@ type ustructured_constant =
 and uconstant =
   | Uconst_ref of string * ustructured_constant option
   | Uconst_int of int
-  | Uconst_ptr of int
 
 and uphantom_defining_expr =
   | Uphantom_const of uconstant
@@ -58,7 +57,7 @@ and uphantom_defining_expr =
 and ulambda =
     Uvar of Backend_var.t
   | Uconst of uconstant
-  | Udirect_apply of function_label * ulambda list * Debuginfo.t
+  | Udirect_apply of function_label * ulambda list * Lambda.probe * Debuginfo.t
   | Ugeneric_apply of ulambda * ulambda list * Debuginfo.t
   | Uclosure of ufunction list * ulambda list
   | Uoffset of ulambda * int

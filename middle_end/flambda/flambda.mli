@@ -29,10 +29,6 @@ type const =
   | Int of int
   | Char of char
   (** [Char] is kept separate from [Int] to improve printing *)
-  | Const_pointer of int
-  (** [Const_pointer] is an immediate value of a type whose values may be
-     boxed (typically a variant type with both constant and non-constant
-     constructors). *)
 
 (** The application of a function to a list of arguments. *)
 type apply = {
@@ -48,6 +44,8 @@ type apply = {
   specialise : Lambda.specialise_attribute;
   (** Instructions from the source code as to whether the callee should
       be specialised. *)
+  probe : Lambda.probe;
+  (** Instruction from the source as to whether the call is a probe *)
 }
 
 (** The update of a mutable variable.  Mutable variables are distinct from
