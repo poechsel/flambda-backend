@@ -44,7 +44,6 @@
  (targets byte)
  ; This should be generated from the stdlib modules files
  (action (run %{ocaml_where}/expunge %{dep:topstart.bc} %{targets}
-                    stdlib__Spacetime
                     stdlib__Arg
                     stdlib__Array
                     stdlib__ArrayLabels

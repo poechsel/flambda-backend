@@ -85,7 +85,7 @@
     branch_relaxation_intf cmm_helpers cmm cmmgen cmmgen_state coloring comballoc
     CSE CSEgen deadcode emit emitaux interf interval linear linearize linscan
     liveness mach printcmm printlinear printmach proc reg reload reloadgen
-    schedgen scheduling selectgen selection spacetime_profiling spill split
+    schedgen scheduling selectgen selection spill split
     strmatch x86_ast x86_dsl x86_gas x86_masm x86_proc fdo_info
 
     ;; file_formats/
@@ -270,7 +270,6 @@
     (scheduling.mli as compiler-libs/scheduling.mli)
     (selectgen.mli as compiler-libs/selectgen.mli)
     (selection.mli as compiler-libs/selection.mli)
-    (spacetime_profiling.mli as compiler-libs/spacetime_profiling.mli)
     (spill.mli as compiler-libs/spill.mli)
     (split.mli as compiler-libs/split.mli)
     (strmatch.mli as compiler-libs/strmatch.mli)
@@ -466,10 +465,6 @@
     (.ocamloptcomp.objs/byte/selection.cmo as compiler-libs/selection.cmo)
     (.ocamloptcomp.objs/byte/selection.cmt as compiler-libs/selection.cmt)
     (.ocamloptcomp.objs/byte/selection.cmti as compiler-libs/selection.cmti)
-    (.ocamloptcomp.objs/byte/spacetime_profiling.cmi as compiler-libs/spacetime_profiling.cmi)
-    (.ocamloptcomp.objs/byte/spacetime_profiling.cmo as compiler-libs/spacetime_profiling.cmo)
-    (.ocamloptcomp.objs/byte/spacetime_profiling.cmt as compiler-libs/spacetime_profiling.cmt)
-    (.ocamloptcomp.objs/byte/spacetime_profiling.cmti as compiler-libs/spacetime_profiling.cmti)
     (.ocamloptcomp.objs/byte/spill.cmi as compiler-libs/spill.cmi)
     (.ocamloptcomp.objs/byte/spill.cmo as compiler-libs/spill.cmo)
     (.ocamloptcomp.objs/byte/spill.cmt as compiler-libs/spill.cmt)
@@ -548,7 +543,6 @@
     (.ocamloptcomp.objs/native/scheduling.cmx as compiler-libs/scheduling.cmx)
     (.ocamloptcomp.objs/native/selectgen.cmx as compiler-libs/selectgen.cmx)
     (.ocamloptcomp.objs/native/selection.cmx as compiler-libs/selection.cmx)
-    (.ocamloptcomp.objs/native/spacetime_profiling.cmx as compiler-libs/spacetime_profiling.cmx)
     (.ocamloptcomp.objs/native/spill.cmx as compiler-libs/spill.cmx)
     (.ocamloptcomp.objs/native/split.cmx as compiler-libs/split.cmx)
     (.ocamloptcomp.objs/native/strmatch.cmx as compiler-libs/strmatch.cmx)

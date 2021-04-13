@@ -164,8 +164,6 @@
     seq.mli
     set.ml
     set.mli
-    spacetime.ml
-    spacetime.mli
     stack.ml
     stack.mli
     stdLabels.ml
@@ -319,9 +317,6 @@
     .stdlib.objs/byte/stdlib__Set.cmi
     .stdlib.objs/byte/stdlib__Set.cmt
     .stdlib.objs/byte/stdlib__Set.cmti
-    .stdlib.objs/byte/stdlib__Spacetime.cmi
-    .stdlib.objs/byte/stdlib__Spacetime.cmt
-    .stdlib.objs/byte/stdlib__Spacetime.cmti
     .stdlib.objs/byte/stdlib__Stack.cmi
     .stdlib.objs/byte/stdlib__Stack.cmt
     .stdlib.objs/byte/stdlib__Stack.cmti
@@ -410,7 +405,6 @@
     .stdlib.objs/native/stdlib__StringLabels.cmx
     .stdlib.objs/native/stdlib__Ephemeron.cmx
     .stdlib.objs/native/stdlib__String.cmx
-    .stdlib.objs/native/stdlib__Spacetime.cmx
     .stdlib.objs/native/stdlib__Nativeint.cmx
     .stdlib.objs/native/stdlib__Set.cmx
     .stdlib.objs/native/stdlib__ListLabels.cmx

@@ -86,7 +86,6 @@
     (s.h as caml/s.h)
     (signals.h as caml/signals.h)
     (signals_machdep.h as caml/signals_machdep.h)
-    (spacetime.h as caml/spacetime.h)
     (stack.h as caml/stack.h)
     (stacks.h as caml/stacks.h)
     (startup.h as caml/startup.h)

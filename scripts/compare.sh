@@ -184,7 +184,6 @@ cmx_exclusions="\
     x86_dsl.cmx \
     scheduling.cmx \
     split.cmx \
-    spacetime_profiling.cmx \
     x86_masm.cmx \
     comballoc.cmx \
     cmm_helpers.cmx \
