@@ -173,14 +173,6 @@
   (targets ocamlobjinfo_native.ml)
   (action (copy objinfo.ml %{targets})))
 
-(executable
-  (name read_cmt)
-  (modes native)
-  (flags -nostdlib)
-  (modules read_cmt)
-  (libraries ocamlcommon ocamlbytecomp ocamloptcomp
-    runtime_native))
-
 (rule
   (targets objinfo_helper)
   (mode fallback)
@@ -192,7 +184,6 @@
     (ocamlobjinfo_byte.bc as ocamlobjinfo.byte)
     (ocamlobjinfo_native.exe as ocamlobjinfo)
     (ocamlobjinfo_native.exe as ocamlobjinfo.opt)
-    (read_cmt.exe as ocamlcmt)
   )
   (section bin)
   (package ocaml))
