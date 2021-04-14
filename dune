@@ -16,6 +16,7 @@
 
 (copy_files# driver/optcompile.ml{,i})
 (copy_files# driver/flambda_backend_main.ml{,i})
+(copy_files# driver/optmaindriver.ml{,i})
 
 (copy_files# file_formats/cmx_format.mli)
 (copy_files# file_formats/linear_format.ml{,i})
@@ -96,7 +97,7 @@
     compute_ranges
 
     ;; driver/
-    opterrors optcompile
+    opterrors optcompile optmaindriver
 
     ; The driver should be in here too, but is not at present.  This might
     ; be tricky because it has a different name...
@@ -285,6 +286,7 @@
     (compute_ranges.mli as compiler-libs/compute_ranges.mli)
     (opterrors.mli as compiler-libs/opterrors.mli)
     (optcompile.mli as compiler-libs/optcompile.mli)
+    (optmaindriver.mli as compiler-libs/optmaindriver.mli)
     (fdo_info.mli as compiler-libs/fdo_info.mli)
 
     (.ocamloptcomp.objs/byte/linear_format.cmi as compiler-libs/linear_format.cmi)
@@ -409,6 +411,10 @@
     (.ocamloptcomp.objs/byte/optcompile.cmo as compiler-libs/optcompile.cmo)
     (.ocamloptcomp.objs/byte/optcompile.cmt as compiler-libs/optcompile.cmt)
     (.ocamloptcomp.objs/byte/optcompile.cmti as compiler-libs/optcompile.cmti)
+    (.ocamloptcomp.objs/byte/optmaindriver.cmi as compiler-libs/optmaindriver.cmi)
+    (.ocamloptcomp.objs/byte/optmaindriver.cmo as compiler-libs/optmaindriver.cmo)
+    (.ocamloptcomp.objs/byte/optmaindriver.cmt as compiler-libs/optmaindriver.cmt)
+    (.ocamloptcomp.objs/byte/optmaindriver.cmti as compiler-libs/optmaindriver.cmti)
     (.ocamloptcomp.objs/byte/opterrors.cmi as compiler-libs/opterrors.cmi)
     (.ocamloptcomp.objs/byte/opterrors.cmo as compiler-libs/opterrors.cmo)
     (.ocamloptcomp.objs/byte/opterrors.cmt as compiler-libs/opterrors.cmt)

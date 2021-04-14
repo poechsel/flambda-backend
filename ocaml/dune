@@ -98,7 +98,7 @@
     instruct
 
     ;; driver/
-    errors compile
+    errors compile maindriver
  ))
 
 (executable
