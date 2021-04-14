@@ -24,7 +24,7 @@
 
 (rule
   (targets opnames.h)
-  (deps ../.depend instruct.h)
+  (deps instruct.h)
   (action (run make -C .. caml/opnames.h)))
 
 (rule

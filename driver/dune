@@ -4,4 +4,4 @@
    (flags (:standard -principal -nostdlib))
    (ocamlopt_flags (:standard -function-sections))
    (libraries stdlib ocamloptcomp)
-   (modules optcompile))
+   (modules optcompile maindriver))

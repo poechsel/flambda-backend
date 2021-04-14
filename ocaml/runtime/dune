@@ -32,7 +32,7 @@
  (targets libcamlrun.a libcamlrund.a libcamlruni.a libcamlrun_pic.a
    libcamlrun_shared.so)
  (mode    fallback)
- (deps    ../Makefile.config ../Makefile.common Makefile
+ (deps    ../Makefile.config ../Makefile.common ../Makefile.build_config ../Makefile.config_if_required Makefile
           (glob_files caml/*.h)
           interp.c misc.c stacks.c fix_code.c startup_aux.c startup_byt.c
           freelist.c major_gc.c minor_gc.c memory.c alloc.c roots_byt.c
@@ -41,7 +41,7 @@
           io.c extern.c intern.c hash.c sys.c meta.c parsing.c gc_ctrl.c md5.c
           obj.c lexing.c callback.c debugger.c weak.c compact.c finalise.c
           custom.c dynlink.c afl.c unix.c win32.c bigarray.c main.c memprof.c 
-          domain.c caml/domain_state.tbl eventlog.c skiplist.c codefrqg.c
+          domain.c caml/domain_state.tbl eventlog.c skiplist.c codefrag.c
           instrtrace.c caml/opnames.h prims.c) 
  (action
    (progn
@@ -52,14 +52,14 @@
 (rule
   (targets prims.c)
   (mode fallback)
-  (deps primitives Makefile .depend)
+  (deps primitives Makefile)
   (action (run make %{targets})))
 
 (rule
  (targets libasmrun.a libasmrund.a libasmruni.a libasmrun_pic.a
    libasmrun_shared.so prims.o)
  (mode    fallback)
- (deps    ../Makefile.config ../Makefile.common Makefile
+ (deps    ../Makefile.config ../Makefile.common ../Makefile.build_config ../Makefile.config_if_required Makefile
   (glob_files caml/*.h)
   signals_osdep.h amd64.S
   startup_aux.c startup_nat.c main.c fail_nat.c roots_nat.c signals.c
@@ -84,7 +84,7 @@
 
 ;(rule
 ;  (targets prims.o)
-;  (deps primitives Makefile .depend)
+;  (deps primitives Makefile)
 ;  (action
 ;    (progn
 ;      ; Find out what's going wrong here
@@ -93,7 +93,7 @@
 ;
 (rule
   (targets ocamlrun)
-  (deps libcamlrun.a prims.o .depend)
+  (deps libcamlrun.a prims.o)
   (action
     (progn
       (bash "touch .depend") ; hack.
@@ -104,7 +104,7 @@
   (targets ocamlrund)
   ; the ocamlrun dep is a hack to serialise production of ocamlrun* so there
   ; isn't a race on prims.o
-  (deps libcamlrund.a prims.o .depend ocamlrun)
+  (deps libcamlrund.a prims.o ocamlrun)
   (action
     (progn
       (bash "touch .depend") ; hack.
@@ -113,7 +113,7 @@
 
 (rule
   (targets ocamlruni)
-  (deps libcamlruni.a prims.o .depend ocamlrund)
+  (deps libcamlruni.a prims.o ocamlrund)
   (action
     (progn
       (bash "touch .depend") ; hack.

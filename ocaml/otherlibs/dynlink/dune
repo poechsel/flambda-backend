@@ -22,6 +22,8 @@
   ))
   (ocamlopt_flags (:standard -function-sections))
   (modules
+    binutils
+    local_store
     config
     build_path_prefix_map
     misc
@@ -84,6 +86,8 @@
 ;  (package ocaml))
 
 ;; .ml:
+(copy_files %{project_root}/ocaml/utils/binutils.ml)
+(copy_files %{project_root}/ocaml/utils/local_store.ml)
 (copy_files %{project_root}/ocaml/utils/config.ml)
 (copy_files %{project_root}/ocaml/utils/build_path_prefix_map.ml)
 (copy_files %{project_root}/ocaml/utils/misc.ml)
@@ -128,6 +132,8 @@
 (copy_files %{project_root}/ocaml/bytecomp/symtable.ml)
 
 ;; .mli:
+(copy_files %{project_root}/ocaml/utils/binutils.mli)
+(copy_files %{project_root}/ocaml/utils/local_store.mli)
 (copy_files %{project_root}/ocaml/utils/config.mli)
 (copy_files %{project_root}/ocaml/utils/build_path_prefix_map.mli)
 (copy_files %{project_root}/ocaml/utils/misc.mli)

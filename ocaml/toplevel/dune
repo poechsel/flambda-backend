@@ -25,10 +25,10 @@
  (modes byte)
  ; Without -nopervasives the stdlib modules are specified twice, which
  ; causes errors.  Maybe this needs a dune fix?
- (flags (:standard -principal -nostdlib -linkall -nopervasives
+ (flags (:standard -principal -nostdlib -linkall
    -cclib "-I ocaml/runtime" -cclib "-L ocaml/runtime" -cclib -lcamlrun))
  (link_deps (file ../stdlib/camlheader) (file ../runtime/libcamlrun.a))
- (libraries ocamlbytecomp ocamlcommon ocamltoplevel)
+ (libraries ocamlbytecomp ocamlcommon ocamltoplevel stdlib)
  (modules topstart))
 
 (executable

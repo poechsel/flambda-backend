@@ -173,12 +173,6 @@
   (targets ocamlobjinfo_native.ml)
   (action (copy objinfo.ml %{targets})))
 
-(rule
-  (targets objinfo_helper)
-  (mode fallback)
-  (deps objinfo_helper.c)
-  (action (run make %{targets})))
-
 (install
   (files
     (ocamlobjinfo_byte.bc as ocamlobjinfo.byte)
@@ -190,7 +184,6 @@
 
 (install
   (files
-    objinfo_helper
     eventlog_metadata
   )
   (section lib)

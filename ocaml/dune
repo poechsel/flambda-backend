@@ -188,6 +188,8 @@
 
 (install
   (files
+    Makefile.build_config
+    Makefile.config_if_required
     Makefile.config
     VERSION
   )
@@ -268,8 +270,6 @@
   (section lib)
   (package ocaml)
   (files
-    (main.mli as compiler-libs/main.mli)
-
     (config.mli as compiler-libs/config.mli)
     (build_path_prefix_map.mli as compiler-libs/build_path_prefix_map.mli)
     (misc.mli as compiler-libs/misc.mli)
