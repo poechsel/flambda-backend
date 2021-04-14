@@ -961,7 +961,7 @@ fi
 
 echo "** Executables in lib/ocaml/"
 
-lib_exes="expunge extract_crc objinfo_helper"
+lib_exes="expunge extract_crc"
 
 for exe in $lib_exes; do
   if [ ! -f $upstream_tree/lib/ocaml/$exe ]; then

@@ -315,7 +315,6 @@ runtest-upstream:
 	  _runtest/tools/ocamlmklib
 	cp _build2/default/ocaml/tools/ocamlobjinfo_byte.bc \
 	  _runtest/tools/ocamlobjinfo
-	cp ./_build2/install/default/lib/ocaml/objinfo_helper _runtest/tools
 	# ocamltest itself
 	mkdir _runtest/ocamltest
 	# This is deliberately run with the stage0 compiler in case the new
