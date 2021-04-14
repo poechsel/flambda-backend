@@ -206,6 +206,8 @@ runtest-upstream:
 	mkdir _runtest
 	cp -a ocaml/testsuite _runtest/testsuite
 	(cd _runtest && ln -s ../ocaml/Makefile.tools Makefile.tools)
+	(cd _runtest && ln -s ../ocaml/Makefile.build_config Makefile.build_config)
+	(cd _runtest && ln -s ../ocaml/Makefile.config_if_required Makefile.config_if_required)
 	(cd _runtest && ln -s ../ocaml/Makefile.config Makefile.config)
 	cp _build2/install/default/bin/* _runtest/
 	# There seems to be an assumption that ocamlc/ocamlopt/ocamllex are
