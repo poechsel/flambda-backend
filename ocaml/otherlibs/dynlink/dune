@@ -217,6 +217,8 @@
       %{read:natdynlinkops1}
       %{read:natdynlinkops2}
       -o dynlink.cma
+      .dynlink_compilerlibs.objs/byte/dynlink_compilerlibs__Binutils.cmo
+      .dynlink_compilerlibs.objs/byte/dynlink_compilerlibs__Local_store.cmo
       .dynlink_compilerlibs.objs/byte/dynlink_compilerlibs__Build_path_prefix_map.cmo
       .dynlink_compilerlibs.objs/byte/dynlink_compilerlibs__Config.cmo
       .dynlink_compilerlibs.objs/byte/dynlink_compilerlibs__Misc.cmo
@@ -277,6 +279,8 @@
       %{read:natdynlinkops1}
       %{read:natdynlinkops2}
       -o dynlink.cmxa
+      .dynlink_compilerlibs.objs/native/dynlink_compilerlibs__Binutils.cmx
+      .dynlink_compilerlibs.objs/native/dynlink_compilerlibs__Local_store.cmx
       .dynlink_compilerlibs.objs/native/dynlink_compilerlibs__Build_path_prefix_map.cmx
       .dynlink_compilerlibs.objs/native/dynlink_compilerlibs__Config.cmx
       .dynlink_compilerlibs.objs/native/dynlink_compilerlibs__Misc.cmx
