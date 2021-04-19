@@ -356,6 +356,8 @@
     dynlink.cmi
     (.dynlink_internal.objs/byte/dynlink.cmti as dynlink.cmti)
     (extract_crc.bc as extract_crc)
+
+    .dynlink_compilerlibs.objs/native/dynlink_compilerlibs__Misc.cmx
   )
   (section lib)
   (package ocaml))
