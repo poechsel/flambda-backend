@@ -247,6 +247,8 @@ runtest-upstream:
 	cp _build2/install/default/lib/ocaml/*.cmxa _runtest/utils
 	cp _build2/default/ocaml/.ocamlcommon.objs/native/config.o \
 	  _runtest/utils
+	# Needed for tests/warnings
+	cp ocaml/utils/warnings.ml _runtest/utils
 	# Suppress linker errors about -I directories not existing.
 	for dir in asmcomp bytecomp driver file_formats lambda middle_end \
 	  parsing typing; do ln -s utils _runtest/$$dir; done
