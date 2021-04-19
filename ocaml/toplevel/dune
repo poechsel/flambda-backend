@@ -58,6 +58,7 @@
                     camlinternalLazy
                     camlinternalMod
                     camlinternalOO
+                    camlinternalAtomic
                     stdlib__Char
                     stdlib__Complex
                     stdlib__Digest
