@@ -33,6 +33,8 @@ p#get_x;;
 
 let q = Oo.copy p;;
 [%%expect{|
+val q : point = <obj>
+|}, Principal{|
 val q : < get_x : int; move : int -> unit > = <obj>
 |}];;
 
