@@ -213,7 +213,7 @@ let can_raise_terminator (i : C.terminator) =
   | Raise _ | Tailcall (Func _) -> true
   | Never | Always _ | Parity_test _ | Truth_test _ | Float_test _
   | Int_test _ | Switch _ | Return
-  | Tailcall (Self _) ->
+  | Tailcall Self ->
       false
 
 let check_traps t label (block : C.basic_block) =
@@ -395,35 +395,35 @@ let add_terminator t (block : C.basic_block) (i : L.instruction)
 
 let to_basic (mop : Mach.operation) : C.basic =
   match mop with
-  | Icall_ind { label_after } -> Call (F (Indirect { label_after }))
-  | Icall_imm { func; label_after } ->
-      Call (F (Direct { func_symbol = func; label_after }))
-  | Iextcall { func; alloc; label_after } ->
-      Call (P (External { func_symbol = func; alloc; label_after }))
-  | Iintop (Icheckbound { label_after_error; spacetime_index }) ->
+  | Icall_ind -> Call (F Indirect)
+  | Icall_imm { func; } ->
+      Call (F (Direct { func_symbol = func; }))
+  | Iextcall { func; alloc; ty_args; ty_res; } ->
+      Call (P (External { func_symbol = func; alloc; ty_args; ty_res }))
+  | Iintop Icheckbound ->
       Call
         (P
            (Checkbound
-              { immediate = None; label_after_error; spacetime_index }))
+              { immediate = None; }))
   | Iintop
       ( ( Iadd | Isub | Imul | Imulh | Idiv | Imod | Iand | Ior | Ixor | Ilsl
         | Ipopcnt | Iclz _ | Ictz _
         | Ilsr | Iasr | Icomp _ ) as op ) ->
       Op (Intop op)
-  | Iintop_imm (Icheckbound { label_after_error; spacetime_index }, i) ->
+  | Iintop_imm (Icheckbound, i) ->
       Call
         (P
            (Checkbound
-              { immediate = Some i; label_after_error; spacetime_index }))
+              { immediate = Some i; }))
   | Iintop_imm
       ( ( ( Iadd | Isub | Imul | Imulh | Idiv | Imod | Iand | Ior | Ixor
           | Ipopcnt | Iclz _ | Ictz _
           | Ilsl | Ilsr | Iasr | Icomp _ ) as op ),
         i ) ->
       Op (Intop_imm (op, i))
-  | Ialloc { bytes; label_after_call_gc; dbginfo; spacetime_index } ->
+  | Ialloc { bytes; dbginfo; } ->
       Call
-        (P (Alloc { bytes; label_after_call_gc; dbginfo; spacetime_index }))
+        (P (Alloc { bytes; dbginfo; }))
   | Iprobe { name; handler_code_sym } ->
       Op (Probe { name; handler_code_sym })
   | Iprobe_is_enabled { name } -> Op (Probe_is_enabled { name })
@@ -450,7 +450,7 @@ let to_basic (mop : Mach.operation) : C.basic =
       Op
         (Name_for_debugger
            { ident; which_parameter; provenance; is_assignment })
-  | Itailcall_ind _ | Itailcall_imm _ -> assert false
+  | Itailcall_ind | Itailcall_imm _ -> assert false
 
 (** [traps] represents the trap stack, with head being the top. [trap_depths]
     is the depth of the trap stack. *)
@@ -594,21 +594,21 @@ let rec create_blocks t (i : L.instruction) (block : C.basic_block)
       create_blocks t i.next block ~trap_depth ~traps
   | Lop mop -> (
       match mop with
-      | Itailcall_ind { label_after } ->
-          let desc = C.Tailcall (Func (Indirect { label_after })) in
+      | Itailcall_ind ->
+          let desc = C.Tailcall (Func Indirect) in
           add_terminator t block i desc ~trap_depth ~traps;
           create_blocks t i.next block ~trap_depth ~traps
-      | Itailcall_imm { func = func_symbol; label_after } ->
+      | Itailcall_imm { func = func_symbol; } ->
           let desc =
             if String.equal func_symbol (C.fun_name t.cfg) then
-              C.Tailcall (Self { label_after })
-            else C.Tailcall (Func (Direct { func_symbol; label_after }))
+              C.Tailcall Self
+            else C.Tailcall (Func (Direct { func_symbol }))
           in
           add_terminator t block i desc ~trap_depth ~traps;
           create_blocks t i.next block ~trap_depth ~traps
       | Imove | Ispill | Ireload | Inegf | Iabsf | Iaddf | Isubf | Imulf
       | Idivf | Ifloatofint | Iintoffloat | Iconst_int _ | Iconst_float _
-      | Iconst_symbol _ | Icall_ind _ | Icall_imm _ | Iextcall _
+      | Iconst_symbol _ | Icall_ind | Icall_imm _ | Iextcall _
       | Istackoffset _
       | Iload (_, _)
       | Istore (_, _, _)
