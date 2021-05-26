@@ -115,8 +115,8 @@ method! reload_operation op arg res =
                | Istore_int (_, _, _)
                | Ioffset_loc (_, _) | Ifloatarithmem (_, _)
                | Ibswap _| Ifloatsqrtf _)
-  | Imove|Ispill|Ireload|Inegf|Iabsf|Iconst_float _|Icall_ind _|Icall_imm _
-  | Itailcall_ind _|Itailcall_imm _|Iextcall _|Istackoffset _|Iload (_, _)
+  | Imove|Ispill|Ireload|Inegf|Iabsf|Iconst_float _|Icall_ind|Icall_imm _
+  | Itailcall_ind|Itailcall_imm _|Iextcall _|Istackoffset _|Iload (_, _)
   | Istore (_, _, _)|Ialloc _|Iname_for_debugger _|Iprobe _|Iprobe_is_enabled _
     -> (* Other operations: all args and results in registers *)
       super#reload_operation op arg res

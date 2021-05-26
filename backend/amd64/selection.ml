@@ -127,13 +127,13 @@ let pseudoregs_for_operation op arg res =
     (* arg.(0) and res.(0) must be the same *)
     ([|res.(0); arg.(1)|], res)
   (* Other instructions are regular *)
-  | Iintop (Ipopcnt|Iclz _|Ictz _|Icomp _|Icheckbound _)
-  | Iintop_imm ((Imulh|Idiv|Imod|Icomp _|Icheckbound _
+  | Iintop (Ipopcnt|Iclz _|Ictz _|Icomp _|Icheckbound)
+  | Iintop_imm ((Imulh|Idiv|Imod|Icomp _|Icheckbound
                 |Ipopcnt|Iclz _|Ictz _), _)
   | Ispecific (Isqrtf|Isextend32|Izextend32|Ilea _|Istore_int (_, _, _)
               |Ioffset_loc (_, _)|Ifloatsqrtf _)
   | Imove|Ispill|Ireload|Ifloatofint|Iintoffloat|Iconst_int _|Iconst_float _
-  | Iconst_symbol _|Icall_ind _|Icall_imm _|Itailcall_ind _|Itailcall_imm _
+  | Iconst_symbol _|Icall_ind|Icall_imm _|Itailcall_ind|Itailcall_imm _
   | Iextcall _|Istackoffset _|Iload (_, _)|Istore (_, _, _)|Ialloc _
   | Iname_for_debugger _|Iprobe _|Iprobe_is_enabled _
     -> raise Use_default
@@ -234,7 +234,7 @@ method! select_operation op args dbg =
      | _ ->
          assert false
     end
-  | Cextcall { name; builtin = true; ret; label_after } ->
+  | Cextcall { name; builtin = true; ret; ty_args = _; } ->
       begin match name, ret with
       | "caml_rdtsc_unboxed", [|Int|] -> Ispecific Irdtsc, args
       | "caml_rdpmc_unboxed", [|Int|] -> Ispecific Irdpmc, args
