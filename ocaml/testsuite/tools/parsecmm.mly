@@ -222,8 +222,7 @@ expr:
                               builtin=false;
                               effects=Arbitrary_effects;
                               coeffects=Has_coeffects;
-                              ty_args=[];
-                              label_after=None},
+                              ty_args=[];},
                      List.rev $4, debuginfo ())}
   | LPAREN ALLOC exprlist RPAREN { Cop(Calloc, List.rev $3, debuginfo ()) }
   | LPAREN SUBF expr RPAREN { Cop(Cnegf, [$3], debuginfo ()) }
