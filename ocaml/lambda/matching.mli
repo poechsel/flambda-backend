@@ -21,11 +21,11 @@ open Debuginfo.Scoped_location
 
 (* Entry points to match compiler *)
 val for_function:
-        scopes:scopes -> Location.t ->
+        scopes:scopes -> value_kind -> Location.t ->
         int ref option -> lambda -> (pattern * lambda) list -> partial ->
         lambda
 val for_trywith:
-        scopes:scopes -> Location.t ->
+        scopes:scopes -> value_kind -> Location.t ->
         lambda -> (pattern * lambda) list ->
         lambda
 val for_let:
@@ -33,7 +33,7 @@ val for_let:
         lambda -> pattern -> lambda ->
         lambda
 val for_multiple_match:
-        scopes:scopes -> Location.t ->
+        scopes:scopes -> value_kind -> Location.t ->
         lambda list -> (pattern * lambda) list -> partial ->
         lambda
 

@@ -49,7 +49,7 @@ let rec eliminate_ref id = function
       Lassign(id, Lprim(Poffsetint delta, [Lvar id], loc))
   | Lprim(p, el, loc) ->
       Lprim(p, List.map (eliminate_ref id) el, loc)
-  | Lswitch(e, sw, loc) ->
+  | Lswitch(e, sw, loc, kind) ->
       Lswitch(eliminate_ref id e,
         {sw_numconsts = sw.sw_numconsts;
          sw_consts =
@@ -59,22 +59,23 @@ let rec eliminate_ref id = function
             List.map (fun (n, e) -> (n, eliminate_ref id e)) sw.sw_blocks;
          sw_failaction =
             Option.map (eliminate_ref id) sw.sw_failaction; },
-        loc)
-  | Lstringswitch(e, sw, default, loc) ->
+         loc,
+         kind)
+  | Lstringswitch(e, sw, default, loc, kind) ->
       Lstringswitch
         (eliminate_ref id e,
          List.map (fun (s, e) -> (s, eliminate_ref id e)) sw,
-         Option.map (eliminate_ref id) default, loc)
+         Option.map (eliminate_ref id) default, loc, kind)
   | Lstaticraise (i,args) ->
       Lstaticraise (i,List.map (eliminate_ref id) args)
   | Lstaticcatch(e1, i, e2) ->
       Lstaticcatch(eliminate_ref id e1, i, eliminate_ref id e2)
-  | Ltrywith(e1, v, e2) ->
-      Ltrywith(eliminate_ref id e1, v, eliminate_ref id e2)
-  | Lifthenelse(e1, e2, e3) ->
+  | Ltrywith(e1, v, e2, kind) ->
+      Ltrywith(eliminate_ref id e1, v, eliminate_ref id e2, kind)
+  | Lifthenelse(e1, e2, e3, kind) ->
       Lifthenelse(eliminate_ref id e1,
                   eliminate_ref id e2,
-                  eliminate_ref id e3)
+                  eliminate_ref id e3, kind)
   | Lsequence(e1, e2) ->
       Lsequence(eliminate_ref id e1, eliminate_ref id e2)
   | Lwhile(e1, e2) ->
@@ -130,12 +131,12 @@ let simplify_exits lam =
       List.iter (fun (_v, l) -> count l) bindings;
       count body
   | Lprim(_p, ll, _) -> List.iter count ll
-  | Lswitch(l, sw, _loc) ->
+  | Lswitch(l, sw, _loc, _kind) ->
       count_default sw ;
       count l;
       List.iter (fun (_, l) -> count l) sw.sw_consts;
       List.iter (fun (_, l) -> count l) sw.sw_blocks
-  | Lstringswitch(l, sw, d, _) ->
+  | Lstringswitch(l, sw, d, _, _kind) ->
       count l;
       List.iter (fun (_, l) -> count l) sw;
       begin match  d with
@@ -157,8 +158,8 @@ let simplify_exits lam =
          l2 will be removed, so don't count its exits *)
       if (get_exit i).count > 0 then
         count l2
-  | Ltrywith(l1, _v, l2) -> incr try_depth; count l1; decr try_depth; count l2
-  | Lifthenelse(l1, l2, l3) -> count l1; count l2; count l3
+  | Ltrywith(l1, _v, l2, _kind) -> incr try_depth; count l1; decr try_depth; count l2
+  | Lifthenelse(l1, l2, l3, _kind) -> count l1; count l2; count l3
   | Lsequence(l1, l2) -> count l1; count l2
   | Lwhile(l1, l2) -> count l1; count l2
   | Lfor(_, l1, l2, _dir, l3) -> count l1; count l2; count l3
@@ -259,7 +260,7 @@ let simplify_exits lam =
 
       | _ -> Lprim(p, ll, loc)
      end
-  | Lswitch(l, sw, loc) ->
+  | Lswitch(l, sw, loc, kind) ->
       let new_l = simplif l
       and new_consts =  List.map (fun (n, e) -> (n, simplif e)) sw.sw_consts
       and new_blocks =  List.map (fun (n, e) -> (n, simplif e)) sw.sw_blocks
@@ -268,11 +269,11 @@ let simplify_exits lam =
         (new_l,
          {sw with sw_consts = new_consts ; sw_blocks = new_blocks;
                   sw_failaction = new_fail},
-         loc)
-  | Lstringswitch(l,sw,d,loc) ->
+         loc, kind)
+  | Lstringswitch(l,sw,d,loc, kind) ->
       Lstringswitch
         (simplif l,List.map (fun (s,l) -> s,simplif l) sw,
-         Option.map simplif d,loc)
+         Option.map simplif d,loc,kind)
   | Lstaticraise (i,[]) as l ->
       begin try
         let _,handler =  Hashtbl.find subst i in
@@ -312,12 +313,12 @@ let simplify_exits lam =
         simplif l1
       end else
         Lstaticcatch (simplif l1, (i,xs), simplif l2)
-  | Ltrywith(l1, v, l2) ->
+  | Ltrywith(l1, v, l2, kind) ->
       incr try_depth;
       let l1 = simplif l1 in
       decr try_depth;
-      Ltrywith(l1, v, simplif l2)
-  | Lifthenelse(l1, l2, l3) -> Lifthenelse(simplif l1, simplif l2, simplif l3)
+      Ltrywith(l1, v, simplif l2, kind)
+  | Lifthenelse(l1, l2, l3, kind) -> Lifthenelse(simplif l1, simplif l2, simplif l3, kind)
   | Lsequence(l1, l2) -> Lsequence(simplif l1, simplif l2)
   | Lwhile(l1, l2) -> Lwhile(simplif l1, simplif l2)
   | Lfor(v, l1, l2, dir, l3) ->
@@ -437,12 +438,12 @@ let simplify_lets lam =
       List.iter (fun (_v, l) -> count bv l) bindings;
       count bv body
   | Lprim(_p, ll, _) -> List.iter (count bv) ll
-  | Lswitch(l, sw, _loc) ->
+  | Lswitch(l, sw, _loc, _kind) ->
       count_default bv sw ;
       count bv l;
       List.iter (fun (_, l) -> count bv l) sw.sw_consts;
       List.iter (fun (_, l) -> count bv l) sw.sw_blocks
-  | Lstringswitch(l, sw, d, _) ->
+  | Lstringswitch(l, sw, d, _, _kind) ->
       count bv l ;
       List.iter (fun (_, l) -> count bv l) sw ;
       begin match d with
@@ -455,8 +456,8 @@ let simplify_lets lam =
       end
   | Lstaticraise (_i,ls) -> List.iter (count bv) ls
   | Lstaticcatch(l1, _, l2) -> count bv l1; count bv l2
-  | Ltrywith(l1, _v, l2) -> count bv l1; count bv l2
-  | Lifthenelse(l1, l2, l3) -> count bv l1; count bv l2; count bv l3
+  | Ltrywith(l1, _v, l2, _kind) -> count bv l1; count bv l2
+  | Lifthenelse(l1, l2, l3, _kind) -> count bv l1; count bv l2; count bv l3
   | Lsequence(l1, l2) -> count bv l1; count bv l2
   | Lwhile(l1, l2) -> count Ident.Map.empty l1; count Ident.Map.empty l2
   | Lfor(_, l1, l2, _dir, l3) ->
@@ -567,7 +568,7 @@ let simplify_lets lam =
   | Lletrec(bindings, body) ->
       Lletrec(List.map (fun (v, l) -> (v, simplif l)) bindings, simplif body)
   | Lprim(p, ll, loc) -> Lprim(p, List.map simplif ll, loc)
-  | Lswitch(l, sw, loc) ->
+  | Lswitch(l, sw, loc, kind) ->
       let new_l = simplif l
       and new_consts =  List.map (fun (n, e) -> (n, simplif e)) sw.sw_consts
       and new_blocks =  List.map (fun (n, e) -> (n, simplif e)) sw.sw_blocks
@@ -576,17 +577,17 @@ let simplify_lets lam =
         (new_l,
          {sw with sw_consts = new_consts ; sw_blocks = new_blocks;
                   sw_failaction = new_fail},
-         loc)
-  | Lstringswitch (l,sw,d,loc) ->
+         loc, kind)
+  | Lstringswitch (l,sw,d,loc, kind) ->
       Lstringswitch
         (simplif l,List.map (fun (s,l) -> s,simplif l) sw,
-         Option.map simplif d,loc)
+         Option.map simplif d,loc, kind)
   | Lstaticraise (i,ls) ->
       Lstaticraise (i, List.map simplif ls)
   | Lstaticcatch(l1, (i,args), l2) ->
       Lstaticcatch (simplif l1, (i,args), simplif l2)
-  | Ltrywith(l1, v, l2) -> Ltrywith(simplif l1, v, simplif l2)
-  | Lifthenelse(l1, l2, l3) -> Lifthenelse(simplif l1, simplif l2, simplif l3)
+  | Ltrywith(l1, v, l2, kind) -> Ltrywith(simplif l1, v, simplif l2, kind)
+  | Lifthenelse(l1, l2, l3, kind) -> Lifthenelse(simplif l1, simplif l2, simplif l3, kind)
   | Lsequence(Lifused(v, l1), l2) ->
       if count_var v > 0
       then Lsequence(simplif l1, simplif l2)
@@ -648,12 +649,12 @@ let rec emit_tail_infos is_tail lambda =
       emit_tail_infos is_tail arg2
   | Lprim (_, l, _) ->
       list_emit_tail_infos false l
-  | Lswitch (lam, sw, _loc) ->
+  | Lswitch (lam, sw, _loc, _k) ->
       emit_tail_infos false lam;
       list_emit_tail_infos_fun snd is_tail sw.sw_consts;
       list_emit_tail_infos_fun snd is_tail sw.sw_blocks;
       Option.iter  (emit_tail_infos is_tail) sw.sw_failaction
-  | Lstringswitch (lam, sw, d, _) ->
+  | Lstringswitch (lam, sw, d, _, _k) ->
       emit_tail_infos false lam;
       List.iter
         (fun (_,lam) ->  emit_tail_infos is_tail lam)
@@ -664,10 +665,10 @@ let rec emit_tail_infos is_tail lambda =
   | Lstaticcatch (body, _, handler) ->
       emit_tail_infos is_tail body;
       emit_tail_infos is_tail handler
-  | Ltrywith (body, _, handler) ->
+  | Ltrywith (body, _, handler, _k) ->
       emit_tail_infos false body;
       emit_tail_infos is_tail handler
-  | Lifthenelse (cond, ifso, ifno) ->
+  | Lifthenelse (cond, ifso, ifno, _k) ->
       emit_tail_infos false cond;
       emit_tail_infos is_tail ifso;
       emit_tail_infos is_tail ifno
@@ -706,7 +707,7 @@ and list_emit_tail_infos is_tail =
 
 let split_default_wrapper ~id:fun_id ~kind ~params ~return ~body ~attr ~loc =
   let rec aux map = function
-    | Llet(Strict, k, id, (Lifthenelse(Lvar optparam, _, _) as def), rest) when
+    | Llet(Strict, k, id, (Lifthenelse(Lvar optparam, _, _, _) as def), rest) when
         (not (Clflags.is_flambda2 ()))
           && Ident.name optparam = "*opt*" && List.mem_assoc optparam params
           && not (List.mem_assoc optparam map)
@@ -719,7 +720,7 @@ let split_default_wrapper ~id:fun_id ~kind ~params ~return ~body ~attr ~loc =
             sw_consts = [_];
             sw_numblocks = 1;
             sw_blocks = [_];
-            sw_failaction = None}, _dbg)
+            sw_failaction = None}, _dbg, _)
          as def), rest) when
         Clflags.is_flambda2 ()
           && Ident.name optparam = "*opt*" && List.mem_assoc optparam params

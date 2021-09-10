@@ -1133,7 +1133,7 @@ let rec close ({ backend; fenv; cenv ; mutable_vars } as env) lam =
       let dbg = Debuginfo.from_location loc in
       simplif_prim ~backend !Clflags.float_const_prop
                    p (close_list_approx env args) dbg
-  | Lswitch(arg, sw, dbg) ->
+  | Lswitch(arg, sw, dbg, _k) ->
       let fn fail =
         let (uarg, _) = close env arg in
         let const_index, const_actions, fconst =
@@ -1165,7 +1165,7 @@ let rec close ({ backend; fenv; cenv ; mutable_vars } as env) lam =
             Ucatch (i,[],ubody,uhandler),Value_unknown
           else fn fail
       end
-  | Lstringswitch(arg,sw,d,_) ->
+  | Lstringswitch(arg,sw,d,_,_) ->
       let uarg,_ = close env arg in
       let usw =
         List.map
@@ -1186,11 +1186,11 @@ let rec close ({ backend; fenv; cenv ; mutable_vars } as env) lam =
       let (uhandler, _) = close env handler in
       let vars = List.map (fun (var, k) -> VP.create var, k) vars in
       (Ucatch(i, vars, ubody, uhandler), Value_unknown)
-  | Ltrywith(body, id, handler) ->
+  | Ltrywith(body, id, handler,_k) ->
       let (ubody, _) = close env body in
       let (uhandler, _) = close env handler in
       (Utrywith(ubody, VP.create id, uhandler), Value_unknown)
-  | Lifthenelse(arg, ifso, ifnot) ->
+  | Lifthenelse(arg, ifso, ifnot, _) ->
       begin match close env arg with
         (uarg, Value_const (Uconst_int n)) ->
           sequence_constant_expr uarg

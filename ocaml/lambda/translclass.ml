@@ -185,7 +185,7 @@ let rec build_object_init ~scopes cl_table obj params inh_init obj_init cl =
                     return = Pgenval;
                     attr = default_function_attribute;
                     loc = of_location ~scopes pat.pat_loc;
-                    body = Matching.for_function ~scopes pat.pat_loc
+                    body = Matching.for_function ~scopes Pgenval pat.pat_loc
                              None (Lvar param) [pat, rem] partial}
        in
        begin match obj_init with
@@ -448,7 +448,7 @@ let rec transl_class_rebind ~scopes obj_init cl vf =
                    return = Pgenval;
                    attr = default_function_attribute;
                    loc = of_location ~scopes pat.pat_loc;
-                   body = Matching.for_function ~scopes pat.pat_loc
+                   body = Matching.for_function ~scopes Pgenval pat.pat_loc
                             None (Lvar param) [pat, rem] partial}
       in
       (path, path_lam,
@@ -674,7 +674,7 @@ let free_methods l =
         List.iter (fun (id, _exp) -> fv := Ident.Set.remove id !fv) decl
     | Lstaticcatch(_e1, (_,vars), _e2) ->
         List.iter (fun (id, _) -> fv := Ident.Set.remove id !fv) vars
-    | Ltrywith(_e1, exn, _e2) ->
+    | Ltrywith(_e1, exn, _e2, _k) ->
         fv := Ident.Set.remove exn !fv
     | Lfor(v, _e1, _e2, _dir, _e3) ->
         fv := Ident.Set.remove v !fv
@@ -925,7 +925,7 @@ let transl_class ~scopes ids cl_id pub_meths cl vflag =
          so that the program's behaviour does not change between runs *)
       lupdate_cache
     else
-      Lifthenelse(lfield cached 0, lambda_unit, lupdate_cache) in
+      Lifthenelse(lfield cached 0, lambda_unit, lupdate_cache, Pgenval) in
   llets (
   lcache (
   Lsequence(lcheck_cache,

@@ -1509,6 +1509,7 @@ struct
 
   type act = expression
   type loc = Debuginfo.t
+  type value_kind = unit
 
   (* CR mshinwell: GPR#2294 will fix the Debuginfo here *)
 
@@ -1517,10 +1518,10 @@ struct
   let make_offset arg n = add_const arg n Debuginfo.none
   let make_isout h arg = Cop (Ccmpa Clt, [h ; arg], Debuginfo.none)
   let make_isin h arg = Cop (Ccmpa Cge, [h ; arg], Debuginfo.none)
-  let make_if cond ifso ifnot =
+  let make_if () cond ifso ifnot =
     Cifthenelse (cond, Debuginfo.none, ifso, Debuginfo.none, ifnot,
       Debuginfo.none)
-  let make_switch dbg arg cases actions =
+  let make_switch dbg () arg cases actions =
     let actions = Array.map (fun expr -> expr, dbg) actions in
     make_switch arg cases actions dbg
   let bind arg body = bind "switcher" arg body
@@ -1628,7 +1629,7 @@ let transl_int_switch dbg arg low high cases default = match cases with
     bind "switcher" arg
       (fun a ->
         SwitcherBlocks.zyva
-          dbg
+          dbg ()
           (low,high)
           a
           (Array.of_list inters) store)
@@ -1663,7 +1664,7 @@ let transl_switch_clambda loc arg index cases =
       bind "switcher" arg
         (fun a ->
            SwitcherBlocks.zyva
-             loc
+             loc ()
              (0,n_index-1)
              a
              (Array.of_list inters) store)

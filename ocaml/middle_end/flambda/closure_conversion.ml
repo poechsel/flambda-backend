@@ -488,7 +488,7 @@ let rec close t env (lam : Lambda.lambda) : Flambda.t =
       ~create_body:(fun args ->
         name_expr (Prim (p, args, dbg))
           ~name:(Names.of_primitive lambda_p))
-  | Lswitch (arg, sw, _loc) ->
+  | Lswitch (arg, sw, _loc, _k) ->
     let scrutinee = Variable.create Names.switch in
     let aux (i, lam) = i, close t env lam in
     let nums sw_num cases default =
@@ -507,7 +507,7 @@ let rec close t env (lam : Lambda.lambda) : Flambda.t =
           blocks = List.map aux sw.sw_blocks;
           failaction = Option.map (close t env) sw.sw_failaction;
         }))
-  | Lstringswitch (arg, sw, def, _) ->
+  | Lstringswitch (arg, sw, def, _, _k) ->
     let scrutinee = Variable.create Names.string_switch in
     Flambda.create_let scrutinee (Expr (close t env arg))
       (String_switch (scrutinee,
@@ -527,10 +527,10 @@ let rec close t env (lam : Lambda.lambda) : Flambda.t =
     let vars = List.map Variable.create_with_same_name_as_ident ids in
     Static_catch (st_exn, vars, close t env body,
       close t (Env.add_vars env ids vars) handler)
-  | Ltrywith (body, id, handler) ->
+  | Ltrywith (body, id, handler, _k) ->
     let var = Variable.create_with_same_name_as_ident id in
     Try_with (close t env body, var, close t (Env.add_var env id var) handler)
-  | Lifthenelse (cond, ifso, ifnot) ->
+  | Lifthenelse (cond, ifso, ifnot, _k) ->
     let cond = close t env cond in
     let cond_var = Variable.create Names.cond in
     Flambda.create_let cond_var (Expr cond)

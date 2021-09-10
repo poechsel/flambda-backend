@@ -604,7 +604,7 @@ let rec lam ppf = function
       let lams ppf largs =
         List.iter (fun l -> fprintf ppf "@ %a" lam l) largs in
       fprintf ppf "@[<2>(%a%a)@]" primitive prim lams largs
-  | Lswitch(larg, sw, _loc) ->
+  | Lswitch(larg, sw, _loc, kind) ->
       let switch ppf sw =
         let spc = ref false in
         List.iter
@@ -624,10 +624,10 @@ let rec lam ppf = function
             fprintf ppf "@[<hv 1>default:@ %a@]" lam l
         end in
       fprintf ppf
-       "@[<1>(%s %a@ @[<v 0>%a@])@]"
+       "@[<1>(%s %a%a@ @[<v 0>%a@])@]"
        (match sw.sw_failaction with None -> "switch*" | _ -> "switch")
-       lam larg switch sw
-  | Lstringswitch(arg, cases, default, _) ->
+       lam larg value_kind kind switch sw
+  | Lstringswitch(arg, cases, default, _, kind) ->
       let switch ppf cases =
         let spc = ref false in
         List.iter
@@ -642,7 +642,7 @@ let rec lam ppf = function
         | None -> ()
         end in
       fprintf ppf
-       "@[<1>(stringswitch %a@ @[<v 0>%a@])@]" lam arg switch cases
+       "@[<1>(stringswitch %a%a@ @[<v 0>%a@])@]" lam arg value_kind kind switch cases
   | Lstaticraise (i, ls)  ->
       let lams ppf largs =
         List.iter (fun l -> fprintf ppf "@ %a" lam l) largs in
@@ -657,11 +657,11 @@ let rec lam ppf = function
         )
         vars
         lam lhandler
-  | Ltrywith(lbody, param, lhandler) ->
-      fprintf ppf "@[<2>(try@ %a@;<1 -1>with %a@ %a)@]"
-        lam lbody Ident.print param lam lhandler
-  | Lifthenelse(lcond, lif, lelse) ->
-      fprintf ppf "@[<2>(if@ %a@ %a@ %a)@]" lam lcond lam lif lam lelse
+  | Ltrywith(lbody, param, lhandler, kind) ->
+      fprintf ppf "@[<2>(try@ %a%a@;<1 -1>with %a@ %a)@]"
+        lam lbody value_kind kind Ident.print param lam lhandler
+  | Lifthenelse(lcond, lif, lelse, kind) ->
+      fprintf ppf "@[<2>(if@ %a%a@ %a@ %a)@]" lam lcond value_kind kind lam lif lam lelse
   | Lsequence(l1, l2) ->
       fprintf ppf "@[<2>(seq@ %a@ %a)@]" lam l1 sequence l2
   | Lwhile(lcond, lbody) ->
