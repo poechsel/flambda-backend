@@ -383,7 +383,8 @@ let rec close t env (lam : Lambda.lambda) : Flambda.t =
                      case in the array data types work.
                      mshinwell: deferred CR *)
                   name_expr ~name:Names.result
-                    (Prim (prim, [numerator; denominator], dbg))))))))
+                    (Prim (prim, [numerator; denominator], dbg)),
+                               Pintval))))))
   | Lprim ((Pdivint Safe | Pmodint Safe
            | Pdivbint { is_safe = Safe } | Pmodbint { is_safe = Safe }), _, _)
       when not !Clflags.unsafe ->
@@ -395,7 +396,7 @@ let rec close t env (lam : Lambda.lambda) : Flambda.t =
     let cond = Variable.create Names.cond_sequor in
     Flambda.create_let const_true (Const (Int 1))
       (Flambda.create_let cond (Expr arg1)
-        (If_then_else (cond, Var const_true, arg2)))
+        (If_then_else (cond, Var const_true, arg2, Pgenval)))
   | Lprim (Psequand, [arg1; arg2], _) ->
     let arg1 = close t env arg1 in
     let arg2 = close t env arg2 in
@@ -403,7 +404,7 @@ let rec close t env (lam : Lambda.lambda) : Flambda.t =
     let cond = Variable.create Names.const_sequand in
     Flambda.create_let const_false (Const (Int 0))
       (Flambda.create_let cond (Expr arg1)
-        (If_then_else (cond, arg2, Var const_false)))
+        (If_then_else (cond, arg2, Var const_false, Pgenval)))
   | Lprim ((Psequand | Psequor), _, _) ->
     Misc.fatal_error "Psequand / Psequor must have exactly two arguments"
   | Lprim ((Pidentity | Pbytes_to_string | Pbytes_of_string), [arg], _) ->
@@ -488,7 +489,7 @@ let rec close t env (lam : Lambda.lambda) : Flambda.t =
       ~create_body:(fun args ->
         name_expr (Prim (p, args, dbg))
           ~name:(Names.of_primitive lambda_p))
-  | Lswitch (arg, sw, _loc, _k) ->
+  | Lswitch (arg, sw, _loc, k) ->
     let scrutinee = Variable.create Names.switch in
     let aux (i, lam) = i, close t env lam in
     let nums sw_num cases default =
@@ -506,13 +507,13 @@ let rec close t env (lam : Lambda.lambda) : Flambda.t =
           numblocks = nums sw.sw_numblocks sw.sw_blocks sw.sw_failaction;
           blocks = List.map aux sw.sw_blocks;
           failaction = Option.map (close t env) sw.sw_failaction;
-        }))
-  | Lstringswitch (arg, sw, def, _, _k) ->
+        }, k))
+  | Lstringswitch (arg, sw, def, _, k) ->
     let scrutinee = Variable.create Names.string_switch in
     Flambda.create_let scrutinee (Expr (close t env arg))
       (String_switch (scrutinee,
         List.map (fun (s, e) -> s, close t env e) sw,
-        Option.map (close t env) def))
+        Option.map (close t env) def, k))
   | Lstaticraise (i, args) ->
     Lift_code.lifting_helper (close_list t env args)
       ~evaluation_order:`Right_to_left
@@ -527,14 +528,14 @@ let rec close t env (lam : Lambda.lambda) : Flambda.t =
     let vars = List.map Variable.create_with_same_name_as_ident ids in
     Static_catch (st_exn, vars, close t env body,
       close t (Env.add_vars env ids vars) handler)
-  | Ltrywith (body, id, handler, _k) ->
+  | Ltrywith (body, id, handler, k) ->
     let var = Variable.create_with_same_name_as_ident id in
-    Try_with (close t env body, var, close t (Env.add_var env id var) handler)
-  | Lifthenelse (cond, ifso, ifnot, _k) ->
+    Try_with (close t env body, var, close t (Env.add_var env id var) handler, k)
+  | Lifthenelse (cond, ifso, ifnot, k) ->
     let cond = close t env cond in
     let cond_var = Variable.create Names.cond in
     Flambda.create_let cond_var (Expr cond)
-      (If_then_else (cond_var, close t env ifso, close t env ifnot))
+      (If_then_else (cond_var, close t env ifso, close t env ifnot, k))
   | Lsequence (lam1, lam2) ->
     let var = Variable.create Names.sequence in
     let lam1 = Flambda.Expr (close t env lam1) in
