@@ -181,7 +181,7 @@ let variable_and_symbol_invariants (program : Flambda.program) =
       ignore_static_exception static_exn;
       loop env body;
       loop (add_binding_occurrences env vars) handler
-    | Try_with (body, var, handler, _) ->
+    | Try_with (body, var, handler) ->
       loop env body;
       loop (add_binding_occurrence env var) handler
     (* Everything else: *)
@@ -203,11 +203,11 @@ let variable_and_symbol_invariants (program : Flambda.program) =
       check_variable_is_bound env obj;
       check_variables_are_bound env args;
       ignore_debuginfo dbg
-    | If_then_else (cond, ifso, ifnot, _) ->
+    | If_then_else (cond, ifso, ifnot) ->
       check_variable_is_bound env cond;
       loop env ifso;
       loop env ifnot
-    | Switch (arg, { numconsts; consts; numblocks; blocks; failaction; }, _) ->
+    | Switch (arg, { numconsts; consts; numblocks; blocks; failaction; }) ->
       check_variable_is_bound env arg;
       ignore_int_set numconsts;
       ignore_int_set numblocks;
@@ -216,7 +216,7 @@ let variable_and_symbol_invariants (program : Flambda.program) =
           loop env e)
         (consts @ blocks);
       Option.iter (loop env) failaction
-    | String_switch (arg, cases, e_opt, _) ->
+    | String_switch (arg, cases, e_opt) ->
       check_variable_is_bound env arg;
       List.iter (fun (label, case) ->
           ignore_string label;

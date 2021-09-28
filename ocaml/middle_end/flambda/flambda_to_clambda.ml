@@ -274,7 +274,7 @@ let rec to_clambda t env (flam : Flambda.t) : Clambda.ulambda =
       subst_vars env args, dbg)
   | Apply { probe = Some {name}; _ } ->
     Misc.fatal_errorf "Cannot apply indirect handler for probe %s" name ()
-  | Switch (arg, sw, kind) ->
+  | Switch (arg, sw) ->
     let aux () : Clambda.ulambda =
       let const_index, const_actions =
         to_clambda_switch t env sw.consts sw.numconsts sw.failaction
@@ -288,7 +288,7 @@ let rec to_clambda t env (flam : Flambda.t) : Clambda.ulambda =
           us_index_blocks = block_index;
           us_actions_blocks = block_actions;
         },
-        Debuginfo.none, kind)  (* debug info will be added by GPR#855 *)
+        Debuginfo.none)  (* debug info will be added by GPR#855 *)
     in
     (* Check that the [failaction] may be duplicated.  If this is not the
        case, share it through a static raise / static catch. *)
@@ -307,15 +307,15 @@ let rec to_clambda t env (flam : Flambda.t) : Clambda.ulambda =
         }
       in
       let expr : Flambda.t =
-        Static_catch (exn, [], Switch (arg, sw, kind), failaction)
+        Static_catch (exn, [], Switch (arg, sw), failaction)
       in
       to_clambda t env expr
     end
-  | String_switch (arg, sw, def, kind) ->
+  | String_switch (arg, sw, def) ->
     let arg = subst_var env arg in
     let sw = List.map (fun (s, e) -> s, to_clambda t env e) sw in
     let def = Option.map (to_clambda t env) def in
-    Ustringswitch (arg, sw, def, kind)
+    Ustringswitch (arg, sw, def)
   | Static_raise (static_exn, args) ->
     Ustaticfail (Static_exception.to_int static_exn,
       List.map (subst_var env) args)
@@ -328,13 +328,13 @@ let rec to_clambda t env (flam : Flambda.t) : Clambda.ulambda =
     in
     Ucatch (Static_exception.to_int static_exn, ids,
       to_clambda t env body, to_clambda t env_handler handler)
-  | Try_with (body, var, handler, kind) ->
+  | Try_with (body, var, handler) ->
     let id, env_handler = Env.add_fresh_ident env var in
     Utrywith (to_clambda t env body, VP.create id,
-      to_clambda t env_handler handler, kind)
-  | If_then_else (arg, ifso, ifnot, kind) ->
+      to_clambda t env_handler handler)
+  | If_then_else (arg, ifso, ifnot) ->
     Uifthenelse (subst_var env arg, to_clambda t env ifso,
-      to_clambda t env ifnot, kind)
+      to_clambda t env ifnot)
   | While (cond, body) ->
     Uwhile (to_clambda t env cond, to_clambda t env body)
   | For { bound_var; from_value; to_value; direction; body } ->

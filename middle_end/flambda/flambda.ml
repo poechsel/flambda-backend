@@ -65,12 +65,13 @@ type t =
   | Apply of apply
   | Send of send
   | Assign of assign
-  | If_then_else of Variable.t * t * t
-  | Switch of Variable.t * switch
+  | If_then_else of Variable.t * t * t * Lambda.value_kind
+  | Switch of Variable.t * switch * Lambda.value_kind
   | String_switch of Variable.t * (string * t) list * t option
+                     * Lambda.value_kind
   | Static_raise of Static_exception.t * Variable.t list
   | Static_catch of Static_exception.t * Variable.t list * t * t
-  | Try_with of t * Variable.t * t
+  | Try_with of t * Variable.t * t * Lambda.value_kind
   | While of t * t
   | For of for_loop
   | Proved_unreachable
@@ -266,7 +267,7 @@ let rec lam ppf (flam : t) =
           id_arg_list in
       fprintf ppf
         "@[<2>(letrec@ (@[<hv 1>%a@])@ %a)@]" bindings id_arg_list lam body
-  | Switch(larg, sw) ->
+  | Switch(larg, sw, _kind) ->
       let switch ppf (sw : switch) =
         let spc = ref false in
         List.iter
@@ -291,7 +292,7 @@ let rec lam ppf (flam : t) =
         (Int.Set.cardinal sw.numconsts)
         (Int.Set.cardinal sw.numblocks)
         Variable.print larg switch sw
-  | String_switch(arg, cases, default) ->
+  | String_switch(arg, cases, default, _kind) ->
       let switch ppf cases =
         let spc = ref false in
         List.iter
@@ -322,10 +323,10 @@ let rec lam ppf (flam : t) =
                  vars)
         vars
         lam lhandler
-  | Try_with(lbody, param, lhandler) ->
+  | Try_with(lbody, param, lhandler, _kind) ->
       fprintf ppf "@[<2>(try@ %a@;<1 -1>with %a@ %a)@]"
         lam lbody Variable.print param lam lhandler
-  | If_then_else(lcond, lif, lelse) ->
+  | If_then_else(lcond, lif, lelse, _kind) ->
       fprintf ppf "@[<2>(if@ %a@ then begin@ %a@ end else begin@ %a@ end)@]"
         Variable.print lcond
         lam lif lam lelse
@@ -567,12 +568,12 @@ let rec variables_usage ?ignore_uses_as_callee ?ignore_uses_as_argument
                  ~all_used_variables defining_expr))
           bindings;
         aux body
-      | Switch (scrutinee, switch) ->
+      | Switch (scrutinee, switch, _kind) ->
         free_variable scrutinee;
         List.iter (fun (_, e) -> aux e) switch.consts;
         List.iter (fun (_, e) -> aux e) switch.blocks;
         Option.iter aux switch.failaction
-      | String_switch (scrutinee, cases, failaction) ->
+      | String_switch (scrutinee, cases, failaction, _kind) ->
         free_variable scrutinee;
         List.iter (fun (_, e) -> aux e) cases;
         Option.iter aux failaction
@@ -582,11 +583,11 @@ let rec variables_usage ?ignore_uses_as_callee ?ignore_uses_as_argument
         List.iter bound_variable vars;
         aux e1;
         aux e2
-      | Try_with (e1, var, e2) ->
+      | Try_with (e1, var, e2, _kind) ->
         aux e1;
         bound_variable var;
         aux e2
-      | If_then_else (var, e1, e2) ->
+      | If_then_else (var, e1, e2, _kind) ->
         free_variable var;
         aux e1;
         aux e2
@@ -785,18 +786,18 @@ let iter_general ~toplevel f f_named maybe_named =
       | Let_rec (defs, body) ->
         List.iter (fun (_,l) -> aux_named l) defs;
         aux body
-      | Try_with (f1,_,f2)
+      | Try_with (f1,_,f2, _)
       | While (f1,f2)
       | Static_catch (_,_,f1,f2) ->
         aux f1; aux f2
       | For { body; _ } -> aux body
-      | If_then_else (_, f1, f2) ->
+      | If_then_else (_, f1, f2, _) ->
         aux f1; aux f2
-      | Switch (_, sw) ->
+      | Switch (_, sw, _) ->
         List.iter (fun (_,l) -> aux l) sw.consts;
         List.iter (fun (_,l) -> aux l) sw.blocks;
         Option.iter aux sw.failaction
-      | String_switch (_, sw, def) ->
+      | String_switch (_, sw, def, _) ->
         List.iter (fun (_,l) -> aux l) sw;
         Option.iter aux def
   and aux_named (named : named) =

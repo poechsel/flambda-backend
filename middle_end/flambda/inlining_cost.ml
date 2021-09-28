@@ -92,13 +92,13 @@ let lambda_smaller' lam ~than:threshold =
     | Let_rec (bindings, body) ->
       List.iter (fun (_, lam) -> lambda_named_size lam) bindings;
       lambda_size body
-    | Switch (_, sw) ->
+    | Switch (_, sw, _) ->
       let aux = function _::_::_ -> size := !size + 5 | _ -> () in
       aux sw.consts; aux sw.blocks;
       List.iter (fun (_, lam) -> lambda_size lam) sw.consts;
       List.iter (fun (_, lam) -> lambda_size lam) sw.blocks;
       Option.iter lambda_size sw.failaction
-    | String_switch (_, sw, def) ->
+    | String_switch (_, sw, def, _) ->
       List.iter (fun (_, lam) ->
           size := !size + 2;
           lambda_size lam)
@@ -107,9 +107,9 @@ let lambda_smaller' lam ~than:threshold =
     | Static_raise _ -> ()
     | Static_catch (_, _, body, handler) ->
       incr size; lambda_size body; lambda_size handler
-    | Try_with (body, _, handler) ->
+    | Try_with (body, _, handler, _) ->
       size := !size + 8; lambda_size body; lambda_size handler
-    | If_then_else (_, ifso, ifnot) ->
+    | If_then_else (_, ifso, ifnot, _) ->
       size := !size + 2;
       lambda_size ifso; lambda_size ifnot
     | While (cond, body) ->

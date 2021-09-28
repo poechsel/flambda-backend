@@ -99,11 +99,6 @@ and uconstant ppf = function
   | Uconst_ref (s, None) -> fprintf ppf "%S"s
   | Uconst_int i -> fprintf ppf "%i" i
 
-and print_kind ppf (kind : Lambda.value_kind) =
-  match kind with
-  | Pgenval -> ()
-  | _ -> fprintf ppf " %a" Printlambda.value_kind kind
-
 and lam ppf = function
   | Uvar id ->
       V.print ppf id
@@ -171,7 +166,7 @@ and lam ppf = function
         List.iter (fun l -> fprintf ppf "@ %a" lam l) largs in
       fprintf ppf "@[<2>(%a%a)@]"
         Printclambda_primitives.primitive prim lams largs
-  | Uswitch(larg, sw, _dbg, kind) ->
+  | Uswitch(larg, sw, _dbg) ->
       let print_case tag index i ppf =
         for j = 0 to Array.length index - 1 do
           if index.(j) = i then fprintf ppf "case %s %i:" tag j
@@ -185,10 +180,9 @@ and lam ppf = function
         print_cases "int" sw.us_index_consts sw.us_actions_consts ppf ;
         print_cases "tag" sw.us_index_blocks sw.us_actions_blocks ppf  in
       fprintf ppf
-       "@[<v 0>@[<2>(switch@ %a@ %a@ @]%a)@]"
-        print_kind kind
+       "@[<v 0>@[<2>(switch@ %a@ @]%a)@]"
         lam larg switch sw
-  | Ustringswitch(larg,sw,d,kind) ->
+  | Ustringswitch(larg,sw,d) ->
       let switch ppf sw =
         let spc = ref false in
         List.iter
@@ -204,7 +198,7 @@ and lam ppf = function
         | None -> ()
         end in
       fprintf ppf
-        "@[<1>(switch@ %a@ %a@ @[<v 0>%a@])@]" print_kind kind lam larg switch sw
+        "@[<1>(switch %a@ @[<v 0>%a@])@]" lam larg switch sw
   | Ustaticfail (i, ls)  ->
       let lams ppf largs =
         List.iter (fun l -> fprintf ppf "@ %a" lam l) largs in
@@ -223,12 +217,11 @@ and lam ppf = function
         )
         vars
         lam lhandler
-  | Utrywith(lbody, param, lhandler, kind) ->
-      fprintf ppf "@[<2>(try@ %a@ %a@;<1 -1>with %a@ %a)@]"
-        print_kind kind
+  | Utrywith(lbody, param, lhandler) ->
+      fprintf ppf "@[<2>(try@ %a@;<1 -1>with %a@ %a)@]"
         lam lbody VP.print param lam lhandler
-  | Uifthenelse(lcond, lif, lelse, kind) ->
-      fprintf ppf "@[<2>(if@ %a@ %a@ %a@ %a)@]" print_kind kind lam lcond lam lif lam lelse
+  | Uifthenelse(lcond, lif, lelse) ->
+      fprintf ppf "@[<2>(if@ %a@ %a@ %a)@]" lam lcond lam lif lam lelse
   | Usequence(l1, l2) ->
       fprintf ppf "@[<2>(seq@ %a@ %a)@]" lam l1 sequence l2
   | Uwhile(lcond, lbody) ->

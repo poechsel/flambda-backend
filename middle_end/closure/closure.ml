@@ -80,17 +80,17 @@ let occurs_var var u =
     | Uletrec(decls, body) ->
         List.exists (fun (_id, u) -> occurs u) decls || occurs body
     | Uprim(_p, args, _) -> List.exists occurs args
-    | Uswitch(arg, s, _dbg) ->
+    | Uswitch(arg, s, _dbg, _kind) ->
         occurs arg ||
         occurs_array s.us_actions_consts || occurs_array s.us_actions_blocks
-    | Ustringswitch(arg,sw,d) ->
+    | Ustringswitch(arg,sw,d, _kind) ->
         occurs arg ||
         List.exists (fun (_,e) -> occurs e) sw ||
         (match d with None -> false | Some d -> occurs d)
     | Ustaticfail (_, args) -> List.exists occurs args
     | Ucatch(_, _, body, hdlr) -> occurs body || occurs hdlr
-    | Utrywith(body, _exn, hdlr) -> occurs body || occurs hdlr
-    | Uifthenelse(cond, ifso, ifnot) ->
+    | Utrywith(body, _exn, hdlr, _kind) -> occurs body || occurs hdlr
+    | Uifthenelse(cond, ifso, ifnot, _kind) ->
         occurs cond || occurs ifso || occurs ifnot
     | Usequence(u1, u2) -> occurs u1 || occurs u2
     | Uwhile(cond, body) -> occurs cond || occurs body
@@ -175,13 +175,13 @@ let lambda_smaller lam threshold =
     | Uprim(prim, args, _) ->
         size := !size + prim_size prim args;
         lambda_list_size args
-    | Uswitch(lam, cases, _dbg) ->
+    | Uswitch(lam, cases, _dbg, _kind) ->
         if Array.length cases.us_actions_consts > 1 then size := !size + 5 ;
         if Array.length cases.us_actions_blocks > 1 then size := !size + 5 ;
         lambda_size lam;
         lambda_array_size cases.us_actions_consts ;
         lambda_array_size cases.us_actions_blocks
-    | Ustringswitch (lam,sw,d) ->
+    | Ustringswitch (lam,sw,d, _kind) ->
         lambda_size lam ;
        (* as ifthenelse *)
         List.iter
@@ -193,9 +193,9 @@ let lambda_smaller lam threshold =
     | Ustaticfail (_,args) -> lambda_list_size args
     | Ucatch(_, _, body, handler) ->
         incr size; lambda_size body; lambda_size handler
-    | Utrywith(body, _id, handler) ->
+    | Utrywith(body, _id, handler, _kind) ->
         size := !size + 8; lambda_size body; lambda_size handler
-    | Uifthenelse(cond, ifso, ifnot) ->
+    | Uifthenelse(cond, ifso, ifnot, _kind) ->
         size := !size + 2;
         lambda_size cond; lambda_size ifso; lambda_size ifnot
     | Usequence(lam1, lam2) ->
@@ -600,7 +600,7 @@ let rec substitute loc ((backend, fpc) as st) sb rn ulam =
       let (res, _) =
         simplif_prim ~backend fpc p (sargs, List.map approx_ulam sargs) dbg in
       res
-  | Uswitch(arg, sw, dbg) ->
+  | Uswitch(arg, sw, dbg, kind) ->
       let sarg = substitute loc st sb rn arg in
       let action =
         (* Unfortunately, we cannot easily deal with the
@@ -626,13 +626,15 @@ let rec substitute loc ((backend, fpc) as st) sb rn ulam =
                     us_actions_blocks =
                       Array.map (substitute loc st sb rn) sw.us_actions_blocks;
                   },
-                  dbg)
+                  dbg,
+                  kind)
       end
-  | Ustringswitch(arg,sw,d) ->
+  | Ustringswitch(arg,sw,d,kind) ->
       Ustringswitch
         (substitute loc st sb rn arg,
          List.map (fun (s,act) -> s,substitute loc st sb rn act) sw,
-         Option.map (substitute loc st sb rn) d)
+         Option.map (substitute loc st sb rn) d,
+         kind)
   | Ustaticfail (nfail, args) ->
       let nfail =
         match rn with
@@ -661,12 +663,12 @@ let rec substitute loc ((backend, fpc) as st) sb rn ulam =
       in
       Ucatch(nfail, ids', substitute loc st sb rn u1,
                           substitute loc st sb' rn u2)
-  | Utrywith(u1, id, u2) ->
+  | Utrywith(u1, id, u2, kind) ->
       let id' = VP.rename id in
       Utrywith(substitute loc st sb rn u1, id',
                substitute loc st
-                 (V.Map.add (VP.var id) (Uvar (VP.var id')) sb) rn u2)
-  | Uifthenelse(u1, u2, u3) ->
+                 (V.Map.add (VP.var id) (Uvar (VP.var id')) sb) rn u2, kind)
+  | Uifthenelse(u1, u2, u3, kind) ->
       begin match substitute loc st sb rn u1 with
         Uconst (Uconst_int n) ->
           if n <> 0 then
@@ -677,7 +679,7 @@ let rec substitute loc ((backend, fpc) as st) sb rn ulam =
           substitute loc st sb rn u2
       | su1 ->
           Uifthenelse(su1, substitute loc st sb rn u2,
-                           substitute loc st sb rn u3)
+                           substitute loc st sb rn u3, kind)
       end
   | Usequence(u1, u2) ->
       Usequence(substitute loc st sb rn u1, substitute loc st sb rn u2)
@@ -1158,7 +1160,7 @@ let rec close ({ backend; fenv; cenv ; mutable_vars } as env) lam =
       let dbg = Debuginfo.from_location loc in
       simplif_prim ~backend !Clflags.float_const_prop
                    p (close_list_approx env args) dbg
-  | Lswitch(arg, sw, dbg) ->
+  | Lswitch(arg, sw, dbg, kind) ->
       let fn fail =
         let (uarg, _) = close env arg in
         let const_index, const_actions, fconst =
@@ -1172,7 +1174,8 @@ let rec close ({ backend; fenv; cenv ; mutable_vars } as env) lam =
               us_actions_consts = const_actions;
               us_index_blocks = block_index;
               us_actions_blocks = block_actions},
-             Debuginfo.from_location dbg)
+             Debuginfo.from_location dbg,
+            kind)
         in
         (fconst (fblock ulam),Value_unknown) in
 (* NB: failaction might get copied, thus it should be some Lstaticraise *)
@@ -1190,7 +1193,7 @@ let rec close ({ backend; fenv; cenv ; mutable_vars } as env) lam =
             Ucatch (i,[],ubody,uhandler),Value_unknown
           else fn fail
       end
-  | Lstringswitch(arg,sw,d,_) ->
+  | Lstringswitch(arg,sw,d,_, kind) ->
       let uarg,_ = close env arg in
       let usw =
         List.map
@@ -1203,7 +1206,7 @@ let rec close ({ backend; fenv; cenv ; mutable_vars } as env) lam =
           (fun d ->
             let ud,_ = close env d in
             ud) d in
-      Ustringswitch (uarg,usw,ud),Value_unknown
+      Ustringswitch (uarg,usw,ud,kind),Value_unknown
   | Lstaticraise (i, args) ->
       (Ustaticfail (i, close_list env args), Value_unknown)
   | Lstaticcatch(body, (i, vars), handler) ->
@@ -1211,11 +1214,11 @@ let rec close ({ backend; fenv; cenv ; mutable_vars } as env) lam =
       let (uhandler, _) = close env handler in
       let vars = List.map (fun (var, k) -> VP.create var, k) vars in
       (Ucatch(i, vars, ubody, uhandler), Value_unknown)
-  | Ltrywith(body, id, handler) ->
+  | Ltrywith(body, id, handler, kind) ->
       let (ubody, _) = close env body in
       let (uhandler, _) = close env handler in
-      (Utrywith(ubody, VP.create id, uhandler), Value_unknown)
-  | Lifthenelse(arg, ifso, ifnot) ->
+      (Utrywith(ubody, VP.create id, uhandler, kind), Value_unknown)
+  | Lifthenelse(arg, ifso, ifnot, kind) ->
       begin match close env arg with
         (uarg, Value_const (Uconst_int n)) ->
           sequence_constant_expr uarg
@@ -1223,7 +1226,7 @@ let rec close ({ backend; fenv; cenv ; mutable_vars } as env) lam =
       | (uarg, _ ) ->
           let (uifso, _) = close env ifso in
           let (uifnot, _) = close env ifnot in
-          (Uifthenelse(uarg, uifso, uifnot), Value_unknown)
+          (Uifthenelse(uarg, uifso, uifnot, kind), Value_unknown)
       end
   | Lsequence(lam1, lam2) ->
       let (ulam1, _) = close env lam1 in
@@ -1511,20 +1514,20 @@ let collect_exported_structured_constants a =
     | Uphantom_let _ -> no_phantom_lets ()
     | Uletrec (l, u) -> List.iter (fun (_, u) -> ulam u) l; ulam u
     | Uprim (_, ul, _) -> List.iter ulam ul
-    | Uswitch (u, sl, _dbg) ->
+    | Uswitch (u, sl, _dbg, _kind) ->
         ulam u;
         Array.iter ulam sl.us_actions_consts;
         Array.iter ulam sl.us_actions_blocks
-    | Ustringswitch (u,sw,d) ->
+    | Ustringswitch (u,sw,d, _kind) ->
         ulam u ;
         List.iter (fun (_,act) -> ulam act) sw ;
         Option.iter ulam d
     | Ustaticfail (_, ul) -> List.iter ulam ul
     | Ucatch (_, _, u1, u2)
-    | Utrywith (u1, _, u2)
+    | Utrywith (u1, _, u2, _)
     | Usequence (u1, u2)
     | Uwhile (u1, u2)  -> ulam u1; ulam u2
-    | Uifthenelse (u1, u2, u3)
+    | Uifthenelse (u1, u2, u3, _)
     | Ufor (_, u1, u2, _, u3) -> ulam u1; ulam u2; ulam u3
     | Uassign (_, u) -> ulam u
     | Usend (_, u1, u2, ul, _) -> ulam u1; ulam u2; List.iter ulam ul

@@ -179,22 +179,20 @@ let make_var_info (clam : Clambda.ulambda) : var_info =
       List.iter (loop ~depth) args;
       ignore_debuginfo dbg
     | Uswitch (cond, { us_index_consts; us_actions_consts;
-          us_index_blocks; us_actions_blocks }, dbg, kind) ->
+          us_index_blocks; us_actions_blocks }, dbg) ->
       loop ~depth cond;
       ignore_int_array us_index_consts;
       Array.iter (loop ~depth) us_actions_consts;
       ignore_int_array us_index_blocks;
       Array.iter (loop ~depth) us_actions_blocks;
-      ignore_debuginfo dbg;
-      ignore_value_kind kind
-    | Ustringswitch (cond, branches, default, kind) ->
+      ignore_debuginfo dbg
+    | Ustringswitch (cond, branches, default) ->
       loop ~depth cond;
       List.iter (fun (str, branch) ->
           ignore_string str;
           loop ~depth branch)
         branches;
-      Option.iter (loop ~depth) default;
-      ignore_value_kind kind
+      Option.iter (loop ~depth) default
     | Ustaticfail (static_exn, args) ->
       ignore_int static_exn;
       List.iter (loop ~depth) args
@@ -203,16 +201,14 @@ let make_var_info (clam : Clambda.ulambda) : var_info =
       ignore_params_with_value_kind vars;
       loop ~depth body;
       loop ~depth handler
-    | Utrywith (body, var, handler, kind) ->
+    | Utrywith (body, var, handler) ->
       loop ~depth body;
       ignore_var_with_provenance var;
-      loop ~depth handler;
-      ignore_value_kind kind
-    | Uifthenelse (cond, ifso, ifnot, kind) ->
+      loop ~depth handler
+    | Uifthenelse (cond, ifso, ifnot) ->
       loop ~depth cond;
       loop ~depth ifso;
-      loop ~depth ifnot;
-      ignore_value_kind kind
+      loop ~depth ifnot
     | Usequence (e1, e2) ->
       loop ~depth e1;
       loop ~depth e2
@@ -370,7 +366,7 @@ let let_bound_vars_that_can_be_moved var_info (clam : Clambda.ulambda) =
       examine_argument_list args;
       ignore_debuginfo dbg
     | Uswitch (cond, { us_index_consts; us_actions_consts;
-          us_index_blocks; us_actions_blocks }, dbg, kind) ->
+          us_index_blocks; us_actions_blocks }, dbg) ->
       examine_argument_list [cond];
       ignore_int_array us_index_consts;
       Array.iter (fun action ->
@@ -383,9 +379,8 @@ let let_bound_vars_that_can_be_moved var_info (clam : Clambda.ulambda) =
           loop action)
         us_actions_blocks;
       ignore_debuginfo dbg;
-      ignore_value_kind kind;
       let_stack := []
-    | Ustringswitch (cond, branches, default, kind) ->
+    | Ustringswitch (cond, branches, default) ->
       examine_argument_list [cond];
       List.iter (fun (str, branch) ->
           ignore_string str;
@@ -394,7 +389,6 @@ let let_bound_vars_that_can_be_moved var_info (clam : Clambda.ulambda) =
         branches;
       let_stack := [];
       Option.iter loop default;
-      ignore_value_kind kind;
       let_stack := []
     | Ustaticfail (static_exn, args) ->
       ignore_int static_exn;
@@ -407,21 +401,19 @@ let let_bound_vars_that_can_be_moved var_info (clam : Clambda.ulambda) =
       let_stack := [];
       loop handler;
       let_stack := []
-    | Utrywith (body, var, handler, kind) ->
+    | Utrywith (body, var, handler) ->
       let_stack := [];
       loop body;
       let_stack := [];
       ignore_var_with_provenance var;
       loop handler;
-      ignore_value_kind kind;
       let_stack := []
-    | Uifthenelse (cond, ifso, ifnot, kind) ->
+    | Uifthenelse (cond, ifso, ifnot) ->
       examine_argument_list [cond];
       let_stack := [];
       loop ifso;
       let_stack := [];
       loop ifnot;
-      ignore_value_kind kind;
       let_stack := []
     | Usequence (e1, e2) ->
       loop e1;
@@ -537,7 +529,7 @@ let rec substitute_let_moveable is_let_moveable env (clam : Clambda.ulambda)
   | Uprim (prim, args, dbg) ->
     let args = substitute_let_moveable_list is_let_moveable env args in
     Uprim (prim, args, dbg)
-  | Uswitch (cond, sw, dbg, kind) ->
+  | Uswitch (cond, sw, dbg) ->
     let cond = substitute_let_moveable is_let_moveable env cond in
     let sw =
       { sw with
@@ -549,8 +541,8 @@ let rec substitute_let_moveable is_let_moveable env (clam : Clambda.ulambda)
             sw.us_actions_blocks;
       }
     in
-    Uswitch (cond, sw, dbg, kind)
-  | Ustringswitch (cond, branches, default, kind) ->
+    Uswitch (cond, sw, dbg)
+  | Ustringswitch (cond, branches, default) ->
     let cond = substitute_let_moveable is_let_moveable env cond in
     let branches =
       List.map (fun (s, branch) ->
@@ -560,7 +552,7 @@ let rec substitute_let_moveable is_let_moveable env (clam : Clambda.ulambda)
     let default =
       Option.map (substitute_let_moveable is_let_moveable env) default
     in
-    Ustringswitch (cond, branches, default, kind)
+    Ustringswitch (cond, branches, default)
   | Ustaticfail (n, args) ->
     let args = substitute_let_moveable_list is_let_moveable env args in
     Ustaticfail (n, args)
@@ -568,15 +560,15 @@ let rec substitute_let_moveable is_let_moveable env (clam : Clambda.ulambda)
     let body = substitute_let_moveable is_let_moveable env body in
     let handler = substitute_let_moveable is_let_moveable env handler in
     Ucatch (n, vars, body, handler)
-  | Utrywith (body, var, handler, kind) ->
+  | Utrywith (body, var, handler) ->
     let body = substitute_let_moveable is_let_moveable env body in
     let handler = substitute_let_moveable is_let_moveable env handler in
-    Utrywith (body, var, handler, kind)
-  | Uifthenelse (cond, ifso, ifnot, kind) ->
+    Utrywith (body, var, handler)
+  | Uifthenelse (cond, ifso, ifnot) ->
     let cond = substitute_let_moveable is_let_moveable env cond in
     let ifso = substitute_let_moveable is_let_moveable env ifso in
     let ifnot = substitute_let_moveable is_let_moveable env ifnot in
-    Uifthenelse (cond, ifso, ifnot, kind)
+    Uifthenelse (cond, ifso, ifnot)
   | Usequence (e1, e2) ->
     let e1 = substitute_let_moveable is_let_moveable env e1 in
     let e2 = substitute_let_moveable is_let_moveable env e2 in
@@ -764,7 +756,7 @@ let rec un_anf_and_moveable var_info env (clam : Clambda.ulambda)
       both_moveable args_moveable (primitive_moveable prim args var_info)
     in
     Uprim (prim, args, dbg), moveable
-  | Uswitch (cond, sw, dbg, kind) ->
+  | Uswitch (cond, sw, dbg) ->
     let cond = un_anf var_info env cond in
     let sw =
       { sw with
@@ -772,15 +764,15 @@ let rec un_anf_and_moveable var_info env (clam : Clambda.ulambda)
         us_actions_blocks = un_anf_array var_info env sw.us_actions_blocks;
       }
     in
-    Uswitch (cond, sw, dbg, kind), Fixed
-  | Ustringswitch (cond, branches, default, kind) ->
+    Uswitch (cond, sw, dbg), Fixed
+  | Ustringswitch (cond, branches, default) ->
     let cond = un_anf var_info env cond in
     let branches =
       List.map (fun (s, branch) -> s, un_anf var_info env branch)
         branches
     in
     let default = Option.map (un_anf var_info env) default in
-    Ustringswitch (cond, branches, default, kind), Fixed
+    Ustringswitch (cond, branches, default), Fixed
   | Ustaticfail (n, args) ->
     let args = un_anf_list var_info env args in
     Ustaticfail (n, args), Fixed
@@ -788,11 +780,11 @@ let rec un_anf_and_moveable var_info env (clam : Clambda.ulambda)
     let body = un_anf var_info env body in
     let handler = un_anf var_info env handler in
     Ucatch (n, vars, body, handler), Fixed
-  | Utrywith (body, var, handler, kind) ->
+  | Utrywith (body, var, handler) ->
     let body = un_anf var_info env body in
     let handler = un_anf var_info env handler in
-    Utrywith (body, var, handler, kind), Fixed
-  | Uifthenelse (cond, ifso, ifnot, kind) ->
+    Utrywith (body, var, handler), Fixed
+  | Uifthenelse (cond, ifso, ifnot) ->
     let cond, cond_moveable = un_anf_and_moveable var_info env cond in
     let ifso, ifso_moveable = un_anf_and_moveable var_info env ifso in
     let ifnot, ifnot_moveable = un_anf_and_moveable var_info env ifnot in
@@ -800,7 +792,7 @@ let rec un_anf_and_moveable var_info env (clam : Clambda.ulambda)
       both_moveable cond_moveable
         (both_moveable ifso_moveable ifnot_moveable)
     in
-    Uifthenelse (cond, ifso, ifnot, kind), moveable
+    Uifthenelse (cond, ifso, ifnot), moveable
   | Usequence (e1, e2) ->
     let e1 = un_anf var_info env e1 in
     let e2 = un_anf var_info env e2 in

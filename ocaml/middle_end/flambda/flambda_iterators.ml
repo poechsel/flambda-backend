@@ -29,18 +29,18 @@ let apply_on_subexpressions f f_named (flam : Flambda.t) =
   | Let_rec (defs, body) ->
     List.iter (fun (_,l) -> f_named l) defs;
     f body
-  | Switch (_, sw, _) ->
+  | Switch (_, sw) ->
     List.iter (fun (_,l) -> f l) sw.consts;
     List.iter (fun (_,l) -> f l) sw.blocks;
     Option.iter f sw.failaction
-  | String_switch (_, sw, def, _) ->
+  | String_switch (_, sw, def) ->
     List.iter (fun (_,l) -> f l) sw;
     Option.iter f def
   | Static_catch (_,_,f1,f2) ->
     f f1; f f2;
-  | Try_with (f1,_,f2, _) ->
+  | Try_with (f1,_,f2) ->
     f f1; f f2
-  | If_then_else (_,f1, f2, _) ->
+  | If_then_else (_,f1, f2) ->
     f f1;f f2
   | While (f1,f2) ->
     f f1; f f2
@@ -100,7 +100,7 @@ let map_subexpressions f f_named (tree:Flambda.t) : Flambda.t =
       tree
     else
       Let_mutable { mutable_let with body = new_body }
-  | Switch (arg, sw, k) ->
+  | Switch (arg, sw) ->
     let aux = map_snd_sharing (fun _ v -> f v) in
     let new_consts = list_map_sharing aux sw.consts in
     let new_blocks = list_map_sharing aux sw.blocks in
@@ -117,14 +117,14 @@ let map_subexpressions f f_named (tree:Flambda.t) : Flambda.t =
           blocks = new_blocks;
         }
       in
-      Switch (arg, sw, k)
-  | String_switch (arg, sw, def, k) ->
+      Switch (arg, sw)
+  | String_switch (arg, sw, def) ->
     let new_sw = list_map_sharing (map_snd_sharing (fun _ v -> f v)) sw in
     let new_def = may_map_sharing f def in
     if sw == new_sw && def == new_def then
       tree
     else
-      String_switch(arg, new_sw, new_def, k)
+      String_switch(arg, new_sw, new_def)
   | Static_catch (i, vars, body, handler) ->
     let new_body = f body in
     let new_handler = f handler in
@@ -132,20 +132,20 @@ let map_subexpressions f f_named (tree:Flambda.t) : Flambda.t =
       tree
     else
       Static_catch (i, vars, new_body, new_handler)
-  | Try_with(body, id, handler, k) ->
+  | Try_with(body, id, handler) ->
     let new_body = f body in
     let new_handler = f handler in
     if body == new_body && handler == new_handler then
       tree
     else
-      Try_with(new_body, id, new_handler, k)
-  | If_then_else(arg, ifso, ifnot, k) ->
+      Try_with(new_body, id, new_handler)
+  | If_then_else(arg, ifso, ifnot) ->
     let new_ifso = f ifso in
     let new_ifnot = f ifnot in
     if new_ifso == ifso && new_ifnot == ifnot then
       tree
     else
-      If_then_else(arg, new_ifso, new_ifnot, k)
+      If_then_else(arg, new_ifso, new_ifnot)
   | While(cond, body) ->
     let new_cond = f cond in
     let new_body = f body in
@@ -311,7 +311,7 @@ let map_general ~toplevel f f_named tree =
             tree
           else
             Let_rec (defs, body)
-        | Switch (arg, sw, k) ->
+        | Switch (arg, sw) ->
           let done_something = ref false in
           let sw =
             { sw with
@@ -334,8 +334,8 @@ let map_general ~toplevel f f_named tree =
           if not !done_something then
             tree
           else
-            Switch (arg, sw, k)
-        | String_switch (arg, sw, def, k) ->
+            Switch (arg, sw)
+        | String_switch (arg, sw, def) ->
           let done_something = ref false in
           let sw =
             List.map (fun (i, v) -> i, aux_done_something v done_something) sw
@@ -348,7 +348,7 @@ let map_general ~toplevel f f_named tree =
           if not !done_something then
             tree
           else
-            String_switch(arg, sw, def, k)
+            String_switch(arg, sw, def)
         | Static_catch (i, vars, body, handler) ->
           let new_body = aux body in
           let new_handler = aux handler in
@@ -356,20 +356,20 @@ let map_general ~toplevel f f_named tree =
             tree
           else
             Static_catch (i, vars, new_body, new_handler)
-        | Try_with(body, id, handler, k) ->
+        | Try_with(body, id, handler) ->
           let new_body = aux body in
           let new_handler = aux handler in
           if new_body == body && new_handler == handler then
             tree
           else
-            Try_with (new_body, id, new_handler, k)
-        | If_then_else (arg, ifso, ifnot, k) ->
+            Try_with (new_body, id, new_handler)
+        | If_then_else (arg, ifso, ifnot) ->
           let new_ifso = aux ifso in
           let new_ifnot = aux ifnot in
           if new_ifso == ifso && new_ifnot == ifnot then
             tree
           else
-            If_then_else (arg, new_ifso, new_ifnot, k)
+            If_then_else (arg, new_ifso, new_ifnot)
         | While (cond, body) ->
           let new_cond = aux cond in
           let new_body = aux body in

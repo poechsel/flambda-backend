@@ -264,40 +264,6 @@ let ccatch (i, ids, e1, e2, dbg) =
 let reset () =
   label_counter := init_label
 
-let iter_shallow_tail f = function
-  | Clet(_, _, body) | Cphantom_let (_, _, body) | Clet_mut(_, _, _, body) ->
-      f body;
-      true
-  | Cifthenelse(_cond, _ifso_dbg, ifso, _ifnot_dbg, ifnot, _dbg) ->
-      f ifso;
-      f ifnot;
-      true
-  | Csequence(_e1, e2) ->
-      f e2;
-      true
-  | Cswitch(_e, _tbl, el, _dbg') ->
-      Array.iter (fun (e, _dbg) -> f e) el;
-      true
-  | Ccatch(_rec_flag, handlers, body) ->
-      List.iter (fun (_, _, h, _dbg) -> f h) handlers;
-      f body;
-      true
-  | Ctrywith(e1, _kind, _id, e2, _dbg) ->
-      f e1;
-      f e2;
-      true
-  | Cexit _ | Cop (Craise _, _, _) ->
-      true
-  | Cconst_int _
-  | Cconst_natint _
-  | Cconst_float _
-  | Cconst_symbol _
-  | Cvar _
-  | Cassign _
-  | Ctuple _
-  | Cop _ ->
-      false
-
 let rec map_tail f = function
   | Clet(id, exp, body) ->
       Clet(id, exp, map_tail f body)
