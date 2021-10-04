@@ -383,7 +383,7 @@ let rec close t env (lam : Lambda.lambda) : Flambda.t =
                      case in the array data types work.
                      mshinwell: deferred CR *)
                   name_expr ~name:Names.result
-                    (Prim (prim, [numerator; denominator], dbg)), Pgenval))))))
+                    (Prim (prim, [numerator; denominator], dbg)), Pintval))))))
   | Lprim ((Pdivint Safe | Pmodint Safe
            | Pdivbint { is_safe = Safe } | Pmodbint { is_safe = Safe }), _, _)
       when not !Clflags.unsafe ->
@@ -395,7 +395,7 @@ let rec close t env (lam : Lambda.lambda) : Flambda.t =
     let cond = Variable.create Names.cond_sequor in
     Flambda.create_let const_true (Const (Int 1))
       (Flambda.create_let cond (Expr arg1)
-        (If_then_else (cond, Var const_true, arg2, Pgenval)))
+        (If_then_else (cond, Var const_true, arg2, Pintval)))
   | Lprim (Psequand, [arg1; arg2], _) ->
     let arg1 = close t env arg1 in
     let arg2 = close t env arg2 in
@@ -403,7 +403,7 @@ let rec close t env (lam : Lambda.lambda) : Flambda.t =
     let cond = Variable.create Names.const_sequand in
     Flambda.create_let const_false (Const (Int 0))
       (Flambda.create_let cond (Expr arg1)
-        (If_then_else (cond, arg2, Var const_false, Pgenval)))
+        (If_then_else (cond, arg2, Var const_false, Pintval)))
   | Lprim ((Psequand | Psequor), _, _) ->
     Misc.fatal_error "Psequand / Psequor must have exactly two arguments"
   | Lprim ((Pidentity | Pbytes_to_string | Pbytes_of_string), [arg], _) ->

@@ -1244,6 +1244,14 @@ and transl_unbox_sized size dbg env exp =
 and transl_let env str kind id exp body =
   let dbg = Debuginfo.none in
   let cexp, unboxing = transl_with_unboxing env exp in
+  let unboxing =
+    match str, kind with
+    | Mutable, Pfloatval ->
+      Boxed (Boxed_float dbg, false)
+    | Mutable, Pboxedintval bi ->
+      Boxed (Boxed_integer (bi, dbg), false)
+    | _ -> unboxing
+  in
   match unboxing with
   | No_unboxing | Boxed (_, true) | No_result ->
       (* N.B. [body] must still be traversed even if [exp] will never return:
