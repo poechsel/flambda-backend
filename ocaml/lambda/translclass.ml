@@ -202,7 +202,7 @@ let rec build_object_init ~scopes cl_table obj params inh_init obj_init cl =
         build_object_init ~scopes cl_table obj (vals @ params)
           inh_init obj_init cl
       in
-      (inh_init, Translcore.transl_let ~scopes rec_flag defs obj_init)
+      (inh_init, Translcore.transl_let ~scopes rec_flag defs Pgenval obj_init)
   | Tcl_open (_, cl)
   | Tcl_constraint (cl, _, _, _, _) ->
       build_object_init ~scopes cl_table obj params inh_init obj_init cl
@@ -409,7 +409,7 @@ let rec build_class_lets ~scopes cl =
     Tcl_let (rec_flag, defs, _vals, cl') ->
       let env, wrap = build_class_lets ~scopes cl' in
       (env, fun x ->
-          Translcore.transl_let ~scopes rec_flag defs (wrap x))
+          Translcore.transl_let ~scopes rec_flag defs Pgenval (wrap x))
   | _ ->
       (cl.cl_env, fun x -> x)
 
@@ -462,7 +462,7 @@ let rec transl_class_rebind ~scopes obj_init cl vf =
   | Tcl_let (rec_flag, defs, _vals, cl) ->
       let path, path_lam, obj_init =
         transl_class_rebind ~scopes obj_init cl vf in
-      (path, path_lam, Translcore.transl_let ~scopes rec_flag defs obj_init)
+      (path, path_lam, Translcore.transl_let ~scopes rec_flag defs Pgenval obj_init)
   | Tcl_structure _ -> raise Exit
   | Tcl_constraint (cl', _, _, _, _) ->
       let path, path_lam, obj_init =
@@ -483,7 +483,7 @@ let rec transl_class_rebind_0 ~scopes (self:Ident.t) obj_init cl vf =
       let path, path_lam, obj_init =
         transl_class_rebind_0 ~scopes self obj_init cl vf
       in
-      (path, path_lam, Translcore.transl_let ~scopes rec_flag defs obj_init)
+      (path, path_lam, Translcore.transl_let ~scopes rec_flag defs Pgenval obj_init)
   | _ ->
       let path, path_lam, obj_init =
         transl_class_rebind ~scopes obj_init cl vf in

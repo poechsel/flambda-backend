@@ -2084,7 +2084,7 @@ let bind_sw arg k =
 
 (* Sequential equality tests *)
 
-let make_string_test_sequence loc arg sw d =
+let make_string_test_sequence loc kind arg sw d =
   let d, sw =
     match d with
     | None -> (
@@ -2103,7 +2103,7 @@ let make_string_test_sequence loc arg sw d =
                   [ arg; Lconst (Const_immstring str) ],
                   loc ),
               k,
-              lam, Pgenval ))
+              lam, kind ))
         sw d)
 
 let rec split k xs =
@@ -2118,7 +2118,7 @@ let rec split k xs =
 
 let zero_lam = Lconst (Const_base (Const_int 0))
 
-let tree_way_test loc arg lt eq gt =
+let tree_way_test loc kind arg lt eq gt =
   Lifthenelse
     ( Lprim (Pintcomp Clt, [ arg; zero_lam ], loc),
       lt,
@@ -2126,33 +2126,33 @@ let tree_way_test loc arg lt eq gt =
         Lprim (Pintcomp Clt, [ zero_lam; arg ], loc),
         gt,
         eq,
-        Pgenval),
-      Pgenval )
+        kind),
+      kind )
 
 (* Dichotomic tree *)
 
-let rec do_make_string_test_tree loc arg sw delta d =
+let rec do_make_string_test_tree loc kind arg sw delta d =
   let len = List.length sw in
   if len <= strings_test_threshold + delta then
-    make_string_test_sequence loc arg sw d
+    make_string_test_sequence loc kind arg sw d
   else
     let lt, (s, act), gt = split len sw in
     bind_sw
       (Lprim (prim_string_compare, [ arg; Lconst (Const_immstring s) ], loc))
       (fun r ->
-        tree_way_test loc r
-          (do_make_string_test_tree loc arg lt delta d)
+        tree_way_test loc kind r
+          (do_make_string_test_tree loc kind arg lt delta d)
           act
-          (do_make_string_test_tree loc arg gt delta d))
+          (do_make_string_test_tree loc kind arg gt delta d))
 
 (* Entry point *)
-let expand_stringswitch loc arg sw d =
+let expand_stringswitch loc kind arg sw d =
   match d with
-  | None -> bind_sw arg (fun arg -> do_make_string_test_tree loc arg sw 0 None)
+  | None -> bind_sw arg (fun arg -> do_make_string_test_tree loc kind arg sw 0 None)
   | Some e ->
       bind_sw arg (fun arg ->
           make_catch e (fun d ->
-              do_make_string_test_tree loc arg sw 1 (Some d)))
+              do_make_string_test_tree loc kind arg sw 1 (Some d)))
 
 (**********************)
 (* Generic test trees *)
@@ -3441,8 +3441,8 @@ let compile_matching ~scopes value_kind loc ~failer repr arg pat_act_list partia
       assert (Jumps.is_empty total);
       lambda
 
-let for_function ~scopes loc repr param pat_act_list partial =
-  compile_matching ~scopes loc ~failer:Raise_match_failure
+let for_function ~scopes kind loc repr param pat_act_list partial =
+  compile_matching ~scopes kind loc ~failer:Raise_match_failure
     repr param pat_act_list partial
 
 (* In the following two cases, exhaustiveness info is not available! *)
@@ -3592,7 +3592,7 @@ let assign_pat ~scopes value_kind opt nraise catch_ids loc pat lam =
     simple_for_let ~scopes value_kind loc lam pat code in
   List.fold_left push_sublet exit rev_sublets
 
-let for_let ~scopes loc param pat body =
+let for_let ~scopes loc param pat body_kind body =
   match pat.pat_desc with
   | Tpat_any ->
       (* This eliminates a useless variable (and stack slot in bytecode)
@@ -3612,18 +3612,17 @@ let for_let ~scopes loc param pat body =
           catch_ids
       in
       let ids = List.map (fun (id, _, _) -> id) catch_ids in
-      let k = Typeopt.value_kind pat.pat_env pat.pat_type in
       let bind =
-        map_return (assign_pat ~scopes k opt nraise ids loc pat) param in
+        map_return (assign_pat ~scopes body_kind opt nraise ids loc pat) param in
       if !opt then
         Lstaticcatch (bind, (nraise, ids_with_kinds), body)
       else
-        simple_for_let ~scopes k loc param pat body
+        simple_for_let ~scopes body_kind loc param pat body
 
 (* Handling of tupled functions and matchings *)
 
 (* Easy case since variables are available *)
-let for_tupled_function ~scopes loc paraml pats_act_list partial =
+let for_tupled_function ~scopes loc kind paraml pats_act_list partial =
   let partial = check_partial_list pats_act_list partial in
   let raise_num = next_raise_count () in
   let omega_params = [ Patterns.omega_list paraml ] in
@@ -3635,7 +3634,7 @@ let for_tupled_function ~scopes loc paraml pats_act_list partial =
   in
   try
     let lambda, total =
-      compile_match ~scopes Pgenval None partial
+      compile_match ~scopes kind None partial
         (Context.start (List.length paraml)) pm
     in
     check_total ~scopes loc ~failer:Raise_match_failure

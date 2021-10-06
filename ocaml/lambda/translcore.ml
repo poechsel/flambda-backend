@@ -255,8 +255,9 @@ and transl_exp0 ~in_new_scope ~scopes e =
   | Texp_constant cst ->
       Lconst(Const_base cst)
   | Texp_let(rec_flag, pat_expr_list, body) ->
+      let body_kind = Typeopt.value_kind body.exp_env body.exp_type in
       transl_let ~scopes rec_flag pat_expr_list
-        (event_before ~scopes body (transl_exp ~scopes body))
+        body_kind (event_before ~scopes body (transl_exp ~scopes body))
   | Texp_function { arg_label = _; param; cases; partial; } ->
       let scopes =
         if in_new_scope then scopes
@@ -459,7 +460,7 @@ and transl_exp0 ~in_new_scope ~scopes e =
       Lifthenelse(transl_exp ~scopes cond,
                   event_before ~scopes ifso (transl_exp ~scopes ifso),
                   lambda_unit,
-                  Typeopt.value_kind e.exp_env e.exp_type)
+                  Pintval (* unit *))
   | Texp_sequence(expr1, expr2) ->
       Lsequence(transl_exp ~scopes expr1,
                 event_before ~scopes expr2 (transl_exp ~scopes expr2))
@@ -566,7 +567,7 @@ and transl_exp0 ~in_new_scope ~scopes e =
       then lambda_unit
       else Lifthenelse (transl_exp ~scopes cond, lambda_unit,
                         assert_failed ~scopes e,
-                        Typeopt.value_kind e.exp_env e.exp_type)
+                        Pintval (* unit *))
   | Texp_lazy e ->
       (* when e needs no computation (constants, identifiers, ...), we
          optimize the translation just as Lazy.lazy_from_val would
@@ -720,12 +721,13 @@ and transl_list_with_shape ~scopes expr_list =
   List.split (List.map transl_with_shape expr_list)
 
 and transl_guard ~scopes guard rhs =
+  let kind = Typeopt.value_kind rhs.exp_env rhs.exp_type in
   let expr = event_before ~scopes rhs (transl_exp ~scopes rhs) in
   match guard with
   | None -> expr
   | Some cond ->
       event_before ~scopes cond
-        (Lifthenelse(transl_exp ~scopes cond, expr, staticfail, Pgenval))
+        (Lifthenelse(transl_exp ~scopes cond, expr, staticfail, kind))
 
 and transl_case ~scopes {c_lhs; c_guard; c_rhs} =
   c_lhs, transl_guard ~scopes c_guard c_rhs
@@ -913,7 +915,7 @@ and transl_tupled_function
         in
         let params = List.map fst tparams in
         ((Tupled, tparams, return),
-         Matching.for_tupled_function ~scopes loc params
+         Matching.for_tupled_function ~scopes loc return params
            (transl_tupled_cases ~scopes pats_expr_list) partial)
     with Matching.Cannot_flatten ->
       transl_function0 ~scopes loc return repr partial param cases
@@ -976,7 +978,7 @@ and transl_bound_exp ~scopes ~in_structure pat expr =
   This complication allows choosing any compilation order for the
   bindings and body of let constructs.
 *)
-and transl_let ~scopes ?(in_structure=false) rec_flag pat_expr_list =
+and transl_let ~scopes ?(in_structure=false) rec_flag pat_expr_list body_kind =
   match rec_flag with
     Nonrecursive ->
       let rec transl = function
@@ -987,7 +989,7 @@ and transl_let ~scopes ?(in_structure=false) rec_flag pat_expr_list =
           let lam = Translattribute.add_function_attributes lam vb_loc attr in
           let mk_body = transl rem in
           fun body ->
-            Matching.for_let ~scopes pat.pat_loc lam pat (mk_body body)
+            Matching.for_let ~scopes pat.pat_loc lam pat body_kind (mk_body body)
       in transl pat_expr_list
   | Recursive ->
       let idlist =

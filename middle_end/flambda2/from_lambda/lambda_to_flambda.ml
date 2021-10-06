@@ -785,16 +785,16 @@ let rec cps_non_tail acc env ccenv (lam : L.lambda)
         k_exn
     | Transformed lam -> cps_non_tail acc env ccenv lam k k_exn
   end
-  | Lswitch (scrutinee, switch, _loc, _kind) ->
+  | Lswitch (scrutinee, switch, _loc, kind) ->
     let result_var = Ident.create_local "switch_result" in
     let_cont_nonrecursive_with_extra_params acc env ccenv ~is_exn_handler:false
-      ~params:[result_var, IR.Not_user_visible, Pgenval]
+      ~params:[result_var, IR.Not_user_visible, kind]
       ~body:(fun acc env ccenv after_switch ->
         cps_switch acc env ccenv switch ~scrutinee after_switch k_exn)
       ~handler:(fun acc env ccenv -> k acc env ccenv result_var)
-  | Lstringswitch (scrutinee, cases, default, loc, _kind) ->
+  | Lstringswitch (scrutinee, cases, default, loc, kind) ->
     cps_non_tail acc env ccenv
-      (Matching.expand_stringswitch loc scrutinee cases default)
+      (Matching.expand_stringswitch loc kind scrutinee cases default)
       k k_exn
   | Lstaticraise (static_exn, args) ->
     let continuation = Env.get_static_exn_continuation env static_exn in
@@ -870,11 +870,11 @@ let rec cps_non_tail acc env ccenv (lam : L.lambda)
               k_exn)
           k_exn)
       k_exn
-  | Ltrywith (body, id, handler, _kind) ->
+  | Ltrywith (body, id, handler, kind) ->
     let body_result = Ident.create_local "body_result" in
     let result_var = Ident.create_local "try_with_result" in
     let_cont_nonrecursive_with_extra_params acc env ccenv ~is_exn_handler:false
-      ~params:[result_var, Not_user_visible, Pgenval]
+      ~params:[result_var, Not_user_visible, kind]
       ~body:(fun acc env ccenv after_continuation ->
         let_cont_nonrecursive_with_extra_params acc env ccenv
           ~is_exn_handler:true
@@ -882,7 +882,7 @@ let rec cps_non_tail acc env ccenv (lam : L.lambda)
           ~body:(fun acc env ccenv handler_continuation ->
             let_cont_nonrecursive_with_extra_params acc env ccenv
               ~is_exn_handler:false
-              ~params:[body_result, Not_user_visible, Pgenval]
+              ~params:[body_result, Not_user_visible, kind]
               ~body:(fun acc env ccenv poptrap_continuation ->
                 let_cont_nonrecursive_with_extra_params acc env ccenv
                   ~is_exn_handler:false ~params:[]
@@ -1112,9 +1112,9 @@ and cps_tail acc env ccenv (lam : L.lambda) (k : Continuation.t)
   end
   | Lswitch (scrutinee, switch, _loc, _kind) ->
     cps_switch acc env ccenv switch ~scrutinee k k_exn
-  | Lstringswitch (scrutinee, cases, default, loc, _kind) ->
+  | Lstringswitch (scrutinee, cases, default, loc, kind) ->
     cps_tail acc env ccenv
-      (Matching.expand_stringswitch loc scrutinee cases default)
+      (Matching.expand_stringswitch loc kind scrutinee cases default)
       k k_exn
   | Lstaticraise (static_exn, args) ->
     let continuation = Env.get_static_exn_continuation env static_exn in
