@@ -225,9 +225,9 @@ and expression =
   | Cop of operation * expression list * Debuginfo.t
   | Csequence of expression * expression
   | Cifthenelse of expression * Debuginfo.t * expression
-      * Debuginfo.t * expression * Debuginfo.t
+      * Debuginfo.t * expression * Debuginfo.t * Lambda.value_kind
   | Cswitch of expression * int array * (expression * Debuginfo.t) array
-      * Debuginfo.t
+      * Debuginfo.t * Lambda.value_kind
   | Ccatch of
       rec_flag
         * (label * (Backend_var.With_provenance.t * machtype) list
@@ -235,7 +235,7 @@ and expression =
         * expression
   | Cexit of exit_label * expression list * trap_action list
   | Ctrywith of expression * trywith_kind * Backend_var.With_provenance.t
-      * expression * Debuginfo.t
+      * expression * Debuginfo.t * Lambda.value_kind
 
 type codegen_option =
   | Reduce_code_size

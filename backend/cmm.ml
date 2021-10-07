@@ -216,9 +216,9 @@ type expression =
   | Cop of operation * expression list * Debuginfo.t
   | Csequence of expression * expression
   | Cifthenelse of expression * Debuginfo.t * expression
-      * Debuginfo.t * expression * Debuginfo.t
+      * Debuginfo.t * expression * Debuginfo.t * Lambda.value_kind
   | Cswitch of expression * int array * (expression * Debuginfo.t) array
-      * Debuginfo.t
+      * Debuginfo.t * Lambda.value_kind
   | Ccatch of
       rec_flag
         * (label * (Backend_var.With_provenance.t * machtype) list
@@ -226,7 +226,7 @@ type expression =
         * expression
   | Cexit of exit_label * expression list * trap_action list
   | Ctrywith of expression * trywith_kind * Backend_var.With_provenance.t
-      * expression * Debuginfo.t
+                * expression * Debuginfo.t * Lambda.value_kind
 
 type codegen_option =
   | Reduce_code_size
@@ -271,23 +271,24 @@ let rec map_tail f = function
       Clet_mut(id, kind, exp, map_tail f body)
   | Cphantom_let(id, exp, body) ->
       Cphantom_let (id, exp, map_tail f body)
-  | Cifthenelse(cond, ifso_dbg, ifso, ifnot_dbg, ifnot, dbg) ->
+  | Cifthenelse(cond, ifso_dbg, ifso, ifnot_dbg, ifnot, dbg, kind) ->
       Cifthenelse
         (
           cond,
           ifso_dbg, map_tail f ifso,
           ifnot_dbg, map_tail f ifnot,
-          dbg
+          dbg,
+          kind
         )
   | Csequence(e1, e2) ->
       Csequence(e1, map_tail f e2)
-  | Cswitch(e, tbl, el, dbg') ->
-      Cswitch(e, tbl, Array.map (fun (e, dbg) -> map_tail f e, dbg) el, dbg')
+  | Cswitch(e, tbl, el, dbg', kind) ->
+      Cswitch(e, tbl, Array.map (fun (e, dbg) -> map_tail f e, dbg) el, dbg', kind)
   | Ccatch(rec_flag, handlers, body) ->
       let map_h (n, ids, handler, dbg) = (n, ids, map_tail f handler, dbg) in
       Ccatch(rec_flag, List.map map_h handlers, map_tail f body)
-  | Ctrywith(e1, kind, id, e2, dbg) ->
-      Ctrywith(map_tail f e1, kind, id, map_tail f e2, dbg)
+  | Ctrywith(e1, kind, id, e2, dbg, value_kind) ->
+      Ctrywith(map_tail f e1, kind, id, map_tail f e2, dbg, value_kind)
   | Cexit _ | Cop (Craise _, _, _) as cmm ->
       cmm
   | Cconst_int _
@@ -315,17 +316,17 @@ let map_shallow f = function
       Cop (op, List.map f el, dbg)
   | Csequence (e1, e2) ->
       Csequence (f e1, f e2)
-  | Cifthenelse(cond, ifso_dbg, ifso, ifnot_dbg, ifnot, dbg) ->
-      Cifthenelse(f cond, ifso_dbg, f ifso, ifnot_dbg, f ifnot, dbg)
-  | Cswitch (e, ia, ea, dbg) ->
-      Cswitch (e, ia, Array.map (fun (e, dbg) -> f e, dbg) ea, dbg)
+  | Cifthenelse(cond, ifso_dbg, ifso, ifnot_dbg, ifnot, dbg, kind) ->
+      Cifthenelse(f cond, ifso_dbg, f ifso, ifnot_dbg, f ifnot, dbg, kind)
+  | Cswitch (e, ia, ea, dbg, kind) ->
+      Cswitch (e, ia, Array.map (fun (e, dbg) -> f e, dbg) ea, dbg, kind)
   | Ccatch (rf, hl, body) ->
       let map_h (n, ids, handler, dbg) = (n, ids, f handler, dbg) in
       Ccatch (rf, List.map map_h hl, f body)
   | Cexit (n, el, traps) ->
       Cexit (n, List.map f el, traps)
-  | Ctrywith (e1, kind, id, e2, dbg) ->
-      Ctrywith (f e1, kind, id, f e2, dbg)
+  | Ctrywith (e1, kind, id, e2, dbg, value_kind) ->
+      Ctrywith (f e1, kind, id, f e2, dbg, value_kind)
   | Cconst_int _
   | Cconst_natint _
   | Cconst_float _

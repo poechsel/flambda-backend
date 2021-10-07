@@ -246,12 +246,12 @@ let untag_int i dbg =
       Cop(Clsr, [c; Cconst_int (n+1, dbg)], dbg)
   | c -> asr_int c (Cconst_int (1, dbg)) dbg
 
-let mk_if_then_else dbg cond ifso_dbg ifso ifnot_dbg ifnot =
+let mk_if_then_else dbg value_kind cond ifso_dbg ifso ifnot_dbg ifnot =
   match cond with
   | Cconst_int (0, _) -> ifnot
   | Cconst_int (1, _) -> ifso
   | _ ->
-    Cifthenelse(cond, ifso_dbg, ifso, ifnot_dbg, ifnot, dbg)
+    Cifthenelse(cond, ifso_dbg, ifso, ifnot_dbg, ifnot, dbg, value_kind)
 
 let mk_not dbg cmm =
   match cmm with
@@ -491,7 +491,7 @@ let rec div_int c1 c2 is_safe dbg =
                       Cop(Cdivi, [c1; c2], dbg),
                       dbg,
                       raise_symbol dbg "caml_exn_Division_by_zero",
-                      dbg)))
+                      dbg, Pintval)))
 
 let mod_int c1 c2 is_safe dbg =
   match (c1, c2) with
@@ -532,7 +532,7 @@ let mod_int c1 c2 is_safe dbg =
                       Cop(Cmodi, [c1; c2], dbg),
                       dbg,
                       raise_symbol dbg "caml_exn_Division_by_zero",
-                      dbg)))
+                      dbg, Pintval)))
 
 (* Division or modulo on boxed integers.  The overflow case min_int / -1
    can occur, in which case we force x / -1 = -x and x mod -1 = 0. (PR#5513). *)
@@ -542,7 +542,8 @@ let is_different_from x = function
   | Cconst_natint (n, _) -> n <> Nativeint.of_int x
   | _ -> false
 
-let safe_divmod_bi mkop is_safe mkm1 c1 c2 bi dbg =
+let safe_divmod_bi mkop kind is_safe mkm1 c1 c2 bi dbg =
+  bind "dividend" c1 (fun c1 ->
   bind "divisor" c2 (fun c2 ->
   bind "dividend" c1 (fun c1 ->
     let c = mkop c1 c2 is_safe dbg in
@@ -553,16 +554,16 @@ let safe_divmod_bi mkop is_safe mkm1 c1 c2 bi dbg =
       Cifthenelse(Cop(Ccmpi Cne, [c2; Cconst_int (-1, dbg)], dbg),
         dbg, c,
         dbg, mkm1 c1 dbg,
-        dbg)
+        dbg, kind)
     else
       c))
 
 let safe_div_bi is_safe =
-  safe_divmod_bi div_int is_safe
+  safe_divmod_bi div_int Pintval is_safe
     (fun c1 dbg -> Cop(Csubi, [Cconst_int (0, dbg); c1], dbg))
 
 let safe_mod_bi is_safe =
-  safe_divmod_bi mod_int is_safe (fun _ dbg -> Cconst_int (0, dbg))
+  safe_divmod_bi mod_int Pintval is_safe (fun _ dbg -> Cconst_int (0, dbg))
 
 (* Bool *)
 
@@ -616,20 +617,20 @@ let rec remove_unit = function
   | Csequence(c, Cconst_int (1, _)) -> c
   | Csequence(c1, c2) ->
       Csequence(c1, remove_unit c2)
-  | Cifthenelse(cond, ifso_dbg, ifso, ifnot_dbg, ifnot, dbg) ->
+  | Cifthenelse(cond, ifso_dbg, ifso, ifnot_dbg, ifnot, dbg, kind) ->
       Cifthenelse(cond,
         ifso_dbg, remove_unit ifso,
         ifnot_dbg,
-        remove_unit ifnot, dbg)
-  | Cswitch(sel, index, cases, dbg) ->
+        remove_unit ifnot, dbg, kind)
+  | Cswitch(sel, index, cases, dbg, kind) ->
       Cswitch(sel, index,
         Array.map (fun (case, dbg) -> remove_unit case, dbg) cases,
-        dbg)
+        dbg, kind)
   | Ccatch(rec_flag, handlers, body) ->
       let map_h (n, ids, handler, dbg) = (n, ids, remove_unit handler, dbg) in
       Ccatch(rec_flag, List.map map_h handlers, remove_unit body)
-  | Ctrywith(body, kind, exn, handler, dbg) ->
-    Ctrywith(remove_unit body, kind, exn, remove_unit handler, dbg)
+  | Ctrywith(body, kind, exn, handler, dbg, value_kind) ->
+    Ctrywith(remove_unit body, kind, exn, remove_unit handler, dbg, value_kind)
   | Clet(id, c1, c2) ->
       Clet(id, c1, remove_unit c2)
   | Cop(Capply _mty, args, dbg) ->
@@ -1529,7 +1530,7 @@ let transl_isout h arg dbg = tag_int (Cop(Ccmpa Clt, [h ; arg], dbg)) dbg
 
 (* Build an actual switch (ie jump table) *)
 
-let make_switch arg cases actions dbg =
+let make_switch arg cases actions dbg kind =
   let extract_uconstant =
     function
     (* Constant integers loaded from a table should end in 1,
@@ -1580,7 +1581,7 @@ let make_switch arg cases actions dbg =
   in
   match Misc.Stdlib.Array.all_somes (Array.map extract_uconstant actions) with
   | None ->
-      Cswitch (arg,cases,actions,dbg)
+      Cswitch (arg,cases,actions,dbg, kind)
   | Some const_actions ->
       match extract_affine ~cases ~const_actions with
       | Some (offset, slope) ->
@@ -1600,7 +1601,7 @@ struct
 
   type act = expression
   type loc = Debuginfo.t
-  type value_kind = unit
+  type value_kind = Lambda.value_kind
 
   (* CR mshinwell: GPR#2294 will fix the Debuginfo here *)
 
@@ -1609,12 +1610,12 @@ struct
   let make_offset arg n = add_const arg n Debuginfo.none
   let make_isout h arg = Cop (Ccmpa Clt, [h ; arg], Debuginfo.none)
   let make_isin h arg = Cop (Ccmpa Cge, [h ; arg], Debuginfo.none)
-  let make_if _value_kind cond ifso ifnot =
+  let make_if value_kind cond ifso ifnot =
     Cifthenelse (cond, Debuginfo.none, ifso, Debuginfo.none, ifnot,
-      Debuginfo.none)
-  let make_switch dbg _value_kind arg cases actions =
+      Debuginfo.none, value_kind)
+  let make_switch dbg value_kind arg cases actions =
     let actions = Array.map (fun expr -> expr, dbg) actions in
-    make_switch arg cases actions dbg
+    make_switch arg cases actions dbg value_kind
   let bind arg body = bind "switcher" arg body
 
   let make_catch handler = match handler with
@@ -1680,7 +1681,7 @@ module SwitcherBlocks = Switch.Make(SArgBlocks)
 (* Int switcher, arg in [low..high],
    cases is list of individual cases, and is sorted by first component *)
 
-let transl_int_switch dbg arg low high cases default = match cases with
+let transl_int_switch dbg value_kind arg low high cases default = match cases with
 | [] -> assert false
 | _::_ ->
     let store = StoreExp.mk_store () in
@@ -1720,13 +1721,13 @@ let transl_int_switch dbg arg low high cases default = match cases with
     bind "switcher" arg
       (fun a ->
         SwitcherBlocks.zyva
-          dbg ()
+          dbg value_kind
           (low,high)
           a
           (Array.of_list inters) store)
 
 
-let transl_switch_clambda loc arg index cases =
+let transl_switch_clambda loc value_kind arg index cases =
   let store = StoreExpForSwitch.mk_store () in
   let index =
     Array.map
@@ -1755,7 +1756,7 @@ let transl_switch_clambda loc arg index cases =
       bind "switcher" arg
         (fun a ->
            SwitcherBlocks.zyva
-             loc ()
+             loc value_kind
              (0,n_index-1)
              a
              (Array.of_list inters) store)
@@ -1852,12 +1853,12 @@ let cache_public_method meths tag cache dbg =
                      dbg)], dbg),
            dbg, Cassign(hi, Cop(Csubi, [Cvar mi; cconst_int 2], dbg)),
            dbg, Cassign(li, Cvar mi),
-           dbg),
+           dbg, Pintval (* unit *)),
         Cifthenelse
           (Cop(Ccmpi Cge, [Cvar li; Cvar hi], dbg),
            dbg, Cexit (Lbl raise_num, [], []),
            dbg, Ctuple [],
-           dbg))))
+           dbg, Pintval (* unit *)))))
        dbg,
      Ctuple [],
      dbg),
@@ -1919,7 +1920,7 @@ let apply_function_body arity =
        dbg ()),
    dbg (),
    app_fun clos 0,
-   dbg ()))
+   dbg (), Pgenval))
 
 let send_function arity =
   let dbg = placeholder_dbg in
@@ -1950,7 +1951,7 @@ let send_function arity =
                 cache_public_method (Cvar meths) tag cache (dbg ()),
                 dbg (),
                 cached_pos,
-                dbg ()),
+                dbg (), Pgenval),
     Cop(Cload (Word_val, Mutable),
       [Cop(Cadda, [Cop (Cadda, [Cvar real; Cvar meths], dbg ());
        cconst_int(2*size_addr-1)], dbg ())], dbg ()))))
@@ -2236,7 +2237,7 @@ let arraylength kind arg dbg =
                           dbg,
                           Cop(Clsr,
                             [hdr; Cconst_int (numfloat_shift, dbg)], dbg),
-                          dbg))
+                          dbg, Pintval))
       in
       Cop(Cor, [len; Cconst_int (1, dbg)], dbg)
   | Paddrarray | Pintarray ->
@@ -2474,7 +2475,7 @@ let arrayref_unsafe kind arg1 arg2 dbg =
                       addr_array_ref arr idx dbg,
                       dbg,
                       float_array_ref arr idx dbg,
-                      dbg)))
+                      dbg, Pgenval)))
   | Paddrarray ->
       addr_array_ref arg1 arg2 dbg
   | Pintarray ->
@@ -2497,7 +2498,7 @@ let arrayref_safe kind arg1 arg2 dbg =
                         addr_array_ref arr idx dbg,
                         dbg,
                         float_array_ref arr idx dbg,
-                        dbg))
+                        dbg, Pgenval))
         else
           Cifthenelse(is_addr_array_hdr hdr dbg,
             dbg,
@@ -2508,7 +2509,7 @@ let arrayref_safe kind arg1 arg2 dbg =
             Csequence(
               make_checkbound dbg [float_array_length_shifted hdr dbg; idx],
               float_array_ref arr idx dbg),
-            dbg))))
+            dbg, Pgenval))))
       | Paddrarray ->
           bind "index" arg2 (fun idx ->
           bind "arr" arg1 (fun arr ->
@@ -2577,7 +2578,7 @@ let arrayset_unsafe kind arg1 arg2 arg3 dbg =
                         dbg,
                         float_array_set arr index (unbox_float dbg newval)
                           dbg,
-                        dbg))))
+                        dbg, Pintval (* unit *)))))
   | Paddrarray ->
       addr_array_set arg1 arg2 arg3 dbg
   | Pintarray ->
@@ -2603,7 +2604,7 @@ let arrayset_safe kind arg1 arg2 arg3 dbg =
                         float_array_set arr idx
                           (unbox_float dbg newval)
                           dbg,
-                        dbg))
+                        dbg, Pintval (* unit *)))
         else
           Cifthenelse(
             is_addr_array_hdr hdr dbg,
@@ -2616,7 +2617,7 @@ let arrayset_safe kind arg1 arg2 arg3 dbg =
               make_checkbound dbg [float_array_length_shifted hdr dbg; idx],
               float_array_set arr idx
                 (unbox_float dbg newval) dbg),
-            dbg)))))
+            dbg, Pintval (* unit*))))))
   | Paddrarray ->
       bind "newval" arg3 (fun newval ->
       bind "index" arg2 (fun idx ->

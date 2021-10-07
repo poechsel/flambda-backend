@@ -1327,7 +1327,8 @@ and make_switch ~tag_discriminant env res e arms =
           i + 1, res)
         arms (0, res)
     in
-    wrap (C.transl_switch_clambda Debuginfo.none e index cases), res
+    (* CR-someday poechsel: Put a correct value kind here *)
+    wrap (C.transl_switch_clambda Debuginfo.none Pgenval e index cases), res
 
 and invalid _env res _e = C.unreachable, res
 

@@ -57,19 +57,19 @@ let rec with_afl_logging b dbg =
 
 and instrument = function
   (* these cases add logging, as they may be targets of conditional branches *)
-  | Cifthenelse (cond, t_dbg, t, f_dbg, f, dbg) ->
+  | Cifthenelse (cond, t_dbg, t, f_dbg, f, dbg, kind) ->
      Cifthenelse (instrument cond, t_dbg, with_afl_logging t t_dbg,
-       f_dbg, with_afl_logging f f_dbg, dbg)
-  | Ctrywith (e, kind, ex, handler, dbg) ->
-     Ctrywith (instrument e, kind, ex, with_afl_logging handler dbg, dbg)
-  | Cswitch (e, cases, handlers, dbg) ->
+       f_dbg, with_afl_logging f f_dbg, dbg, kind)
+  | Ctrywith (e, kind, ex, handler, dbg, value_kind) ->
+     Ctrywith (instrument e, kind, ex, with_afl_logging handler dbg, dbg, value_kind)
+  | Cswitch (e, cases, handlers, dbg, value_kind) ->
      let handlers =
        Array.map (fun (handler, handler_dbg) ->
            let handler = with_afl_logging handler handler_dbg in
            handler, handler_dbg)
          handlers
      in
-     Cswitch (instrument e, cases, handlers, dbg)
+     Cswitch (instrument e, cases, handlers, dbg, value_kind)
 
   (* these cases add no logging, but instrument subexpressions *)
   | Clet (v, e, body) -> Clet (v, instrument e, instrument body)
