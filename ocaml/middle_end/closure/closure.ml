@@ -1181,7 +1181,7 @@ let rec close ({ backend; fenv; cenv ; mutable_vars } as env) lam =
       Ustringswitch (uarg,usw,ud),Value_unknown
   | Lstaticraise (i, args) ->
       (Ustaticfail (i, close_list env args), Value_unknown)
-  | Lstaticcatch(body, (i, vars), handler) ->
+  | Lstaticcatch(body, (i, vars), handler, _) ->
       let (ubody, _) = close env body in
       let (uhandler, _) = close env handler in
       let vars = List.map (fun (var, k) -> VP.create var, k) vars in

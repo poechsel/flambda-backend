@@ -483,7 +483,7 @@ let rec prepare_letrec (recursive_set : Ident.Set.t)
   | Lswitch (_, _, _, _)
   | Lstringswitch (_, _, _, _, _)
   | Lstaticraise (_, _)
-  | Lstaticcatch (_, _, _)
+  | Lstaticcatch (_, _, _, _)
   | Ltrywith (_, _, _, _)
   | Lifthenelse (_, _, _, _)
   | Lsend (_, _, _, _, _)
@@ -496,7 +496,7 @@ let rec prepare_letrec (recursive_set : Ident.Set.t)
        inspected (appearances in guarded positions in other cases are OK) *)
     let no_recurse =
       match lam with
-      | Lstaticcatch (_, _, _) | Ltrywith (_, _, _, _) -> None
+      | Lstaticcatch (_, _, _, _) | Ltrywith (_, _, _, _) -> None
       | Lswitch (lam1, _, _, _)
       | Lstringswitch (lam1, _, _, _, _)
       | Lifthenelse (lam1, _, _, _) ->

@@ -520,7 +520,7 @@ let rec close t env (lam : Lambda.lambda) : Flambda.t =
       ~create_body:(fun args ->
         let static_exn = Env.find_static_exception env i in
         Static_raise (static_exn, args))
-  | Lstaticcatch (body, (i, ids), handler) ->
+  | Lstaticcatch (body, (i, ids), handler, _) ->
     let st_exn = Static_exception.create () in
     let env = Env.add_static_exception env i st_exn in
     let ids = List.map fst ids in

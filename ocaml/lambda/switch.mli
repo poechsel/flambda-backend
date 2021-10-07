@@ -95,7 +95,7 @@ module type S =
       NB:  cases is in the value form *)
     val make_switch : loc -> value_kind -> act -> int array -> act array -> act
    (* Build last minute sharing of action stuff *)
-   val make_catch : act -> int * (act -> act)
+   val make_catch : value_kind -> act -> int * (act -> act)
    val make_exit : int -> act
 
   end

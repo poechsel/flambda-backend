@@ -1172,7 +1172,8 @@ and transl_match ~scopes e arg pat_expr_list partial =
                  Matching.for_trywith ~scopes kind e.exp_loc (Lvar id) exn_cases,
                  kind),
        (static_exception_id, val_ids),
-       handler)
+       handler,
+      kind)
   in
   let classic =
     match arg, exn_cases with
@@ -1205,7 +1206,7 @@ and transl_match ~scopes e arg pat_expr_list partial =
              None (Lvar val_id) val_cases partial)
   in
   List.fold_left (fun body (static_exception_id, val_ids, handler) ->
-    Lstaticcatch (body, (static_exception_id, val_ids), handler)
+    Lstaticcatch (body, (static_exception_id, val_ids), handler, kind)
   ) classic static_handlers
 
 and transl_letop ~scopes loc env let_ ands param case partial =

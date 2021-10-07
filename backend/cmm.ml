@@ -223,7 +223,7 @@ type expression =
       rec_flag
         * (label * (Backend_var.With_provenance.t * machtype) list
           * expression * Debuginfo.t) list
-        * expression
+        * expression * Lambda.value_kind
   | Cexit of exit_label * expression list * trap_action list
   | Ctrywith of expression * trywith_kind * Backend_var.With_provenance.t
                 * expression * Debuginfo.t * Lambda.value_kind
@@ -258,8 +258,8 @@ type phrase =
     Cfunction of fundecl
   | Cdata of data_item list
 
-let ccatch (i, ids, e1, e2, dbg) =
-  Ccatch(Nonrecursive, [i, ids, e2, dbg], e1)
+let ccatch (i, ids, e1, e2, dbg, kind) =
+  Ccatch(Nonrecursive, [i, ids, e2, dbg], e1, kind)
 
 let reset () =
   label_counter := init_label
@@ -284,9 +284,9 @@ let rec map_tail f = function
       Csequence(e1, map_tail f e2)
   | Cswitch(e, tbl, el, dbg', kind) ->
       Cswitch(e, tbl, Array.map (fun (e, dbg) -> map_tail f e, dbg) el, dbg', kind)
-  | Ccatch(rec_flag, handlers, body) ->
+  | Ccatch(rec_flag, handlers, body, kind) ->
       let map_h (n, ids, handler, dbg) = (n, ids, map_tail f handler, dbg) in
-      Ccatch(rec_flag, List.map map_h handlers, map_tail f body)
+      Ccatch(rec_flag, List.map map_h handlers, map_tail f body, kind)
   | Ctrywith(e1, kind, id, e2, dbg, value_kind) ->
       Ctrywith(map_tail f e1, kind, id, map_tail f e2, dbg, value_kind)
   | Cexit _ | Cop (Craise _, _, _) as cmm ->
@@ -320,9 +320,9 @@ let map_shallow f = function
       Cifthenelse(f cond, ifso_dbg, f ifso, ifnot_dbg, f ifnot, dbg, kind)
   | Cswitch (e, ia, ea, dbg, kind) ->
       Cswitch (e, ia, Array.map (fun (e, dbg) -> f e, dbg) ea, dbg, kind)
-  | Ccatch (rf, hl, body) ->
+  | Ccatch (rf, hl, body, kind) ->
       let map_h (n, ids, handler, dbg) = (n, ids, f handler, dbg) in
-      Ccatch (rf, List.map map_h hl, f body)
+      Ccatch (rf, List.map map_h hl, f body, kind)
   | Cexit (n, el, traps) ->
       Cexit (n, List.map f el, traps)
   | Ctrywith (e1, kind, id, e2, dbg, value_kind) ->

@@ -41,7 +41,7 @@ let rec no_effects (flam : Flambda.t) =
   | String_switch (_, sw, def, _) ->
     List.for_all (fun (_, lam) -> no_effects lam) sw
       && Option.fold ~some:no_effects ~none:true def
-  | Static_catch (_, _, body, _) | Try_with (body, _, _, _) ->
+  | Static_catch (_, _, body, _, _) | Try_with (body, _, _, _) ->
     (* If there is a [raise] in [body], the whole [Try_with] may have an
        effect, so there is no need to test the handler. *)
     no_effects body

@@ -307,7 +307,7 @@ let rec to_clambda t env (flam : Flambda.t) : Clambda.ulambda =
         }
       in
       let expr : Flambda.t =
-        Static_catch (exn, [], Switch (arg, sw), failaction)
+        Static_catch (exn, [], Switch (arg, sw), failaction, sw.kind)
       in
       to_clambda t env expr
     end
@@ -319,7 +319,7 @@ let rec to_clambda t env (flam : Flambda.t) : Clambda.ulambda =
   | Static_raise (static_exn, args) ->
     Ustaticfail (Static_exception.to_int static_exn,
       List.map (subst_var env) args)
-  | Static_catch (static_exn, vars, body, handler) ->
+  | Static_catch (static_exn, vars, body, handler, kind) ->
     let env_handler, ids =
       List.fold_right (fun var (env, ids) ->
           let id, env = Env.add_fresh_ident env var in
@@ -327,7 +327,7 @@ let rec to_clambda t env (flam : Flambda.t) : Clambda.ulambda =
         vars (env, [])
     in
     Ucatch (Static_exception.to_int static_exn, ids,
-      to_clambda t env body, to_clambda t env_handler handler)
+      to_clambda t env body, to_clambda t env_handler handler, kind)
   | Try_with (body, var, handler, kind) ->
     let id, env_handler = Env.add_fresh_ident env var in
     Utrywith (to_clambda t env body, VP.create id,

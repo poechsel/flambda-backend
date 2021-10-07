@@ -647,7 +647,7 @@ let rec lam ppf = function
       let lams ppf largs =
         List.iter (fun l -> fprintf ppf "@ %a" lam l) largs in
       fprintf ppf "@[<2>(exit@ %d%a)@]" i lams ls;
-  | Lstaticcatch(lbody, (i, vars), lhandler) ->
+  | Lstaticcatch(lbody, (i, vars), lhandler, _kind) ->
       fprintf ppf "@[<2>(catch@ %a@;<1 -1>with (%d%a)@ %a)@]"
         lam lbody i
         (fun ppf vars ->

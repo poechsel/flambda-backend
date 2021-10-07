@@ -878,9 +878,9 @@ method emit_expr (env:environment) exp =
                       rsel [||];
           r
       end
-  | Ccatch(_, [], e1) ->
+  | Ccatch(_, [], e1, _) ->
       self#emit_expr env e1
-  | Ccatch(rec_flag, handlers, body) ->
+  | Ccatch(rec_flag, handlers, body, _) ->
       let handlers =
         List.map (fun (nfail, ids, e2, dbg) ->
             let rs =
@@ -1293,9 +1293,9 @@ method emit_tail (env:environment) exp =
           in
           self#insert env (Iswitch (index, cases)) rsel [||]
       end
-  | Ccatch(_, [], e1) ->
+  | Ccatch(_, [], e1, _) ->
       self#emit_tail env e1
-  | Ccatch(rec_flag, handlers, e1) ->
+  | Ccatch(rec_flag, handlers, e1, _) ->
       let handlers =
         List.map (fun (nfail, ids, e2, dbg) ->
             let rs =

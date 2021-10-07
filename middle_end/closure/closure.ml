@@ -88,7 +88,7 @@ let occurs_var var u =
         List.exists (fun (_,e) -> occurs e) sw ||
         (match d with None -> false | Some d -> occurs d)
     | Ustaticfail (_, args) -> List.exists occurs args
-    | Ucatch(_, _, body, hdlr) -> occurs body || occurs hdlr
+    | Ucatch(_, _, body, hdlr, _) -> occurs body || occurs hdlr
     | Utrywith(body, _exn, hdlr, _kind) -> occurs body || occurs hdlr
     | Uifthenelse(cond, ifso, ifnot, _kind) ->
         occurs cond || occurs ifso || occurs ifnot
@@ -191,7 +191,7 @@ let lambda_smaller lam threshold =
           sw ;
         Option.iter lambda_size d
     | Ustaticfail (_,args) -> lambda_list_size args
-    | Ucatch(_, _, body, handler) ->
+    | Ucatch(_, _, body, handler, _kind) ->
         incr size; lambda_size body; lambda_size handler
     | Utrywith(body, _id, handler, _kind) ->
         size := !size + 8; lambda_size body; lambda_size handler
@@ -646,7 +646,7 @@ let rec substitute loc ((backend, fpc) as st) sb rn ulam =
           end
         | None -> nfail in
       Ustaticfail (nfail, List.map (substitute loc st sb rn) args)
-  | Ucatch(nfail, ids, u1, u2) ->
+  | Ucatch(nfail, ids, u1, u2, kind) ->
       let nfail, rn =
         match rn with
         | Some rn ->
@@ -662,7 +662,8 @@ let rec substitute loc ((backend, fpc) as st) sb rn ulam =
           ids ids' sb
       in
       Ucatch(nfail, ids', substitute loc st sb rn u1,
-                          substitute loc st sb' rn u2)
+             substitute loc st sb' rn u2,
+             kind)
   | Utrywith(u1, id, u2, kind) ->
       let id' = VP.rename id in
       Utrywith(substitute loc st sb rn u1, id',
@@ -1177,7 +1178,7 @@ let rec close ({ backend; fenv; cenv ; mutable_vars } as env) lam =
              Debuginfo.from_location dbg,
             kind)
         in
-        (fconst (fblock ulam),Value_unknown) in
+        (fconst kind (fblock kind ulam),Value_unknown) in
 (* NB: failaction might get copied, thus it should be some Lstaticraise *)
       let fail = sw.sw_failaction in
       begin match fail with
@@ -1190,7 +1191,7 @@ let rec close ({ backend; fenv; cenv ; mutable_vars } as env) lam =
             let i = next_raise_count () in
             let ubody,_ = fn (Some (Lstaticraise (i,[])))
             and uhandler,_ = close env lamfail in
-            Ucatch (i,[],ubody,uhandler),Value_unknown
+            Ucatch (i,[],ubody,uhandler,kind),Value_unknown
           else fn fail
       end
   | Lstringswitch(arg,sw,d,_, kind) ->
@@ -1209,11 +1210,11 @@ let rec close ({ backend; fenv; cenv ; mutable_vars } as env) lam =
       Ustringswitch (uarg,usw,ud,kind),Value_unknown
   | Lstaticraise (i, args) ->
       (Ustaticfail (i, close_list env args), Value_unknown)
-  | Lstaticcatch(body, (i, vars), handler) ->
+  | Lstaticcatch(body, (i, vars), handler, kind) ->
       let (ubody, _) = close env body in
       let (uhandler, _) = close env handler in
       let vars = List.map (fun (var, k) -> VP.create var, k) vars in
-      (Ucatch(i, vars, ubody, uhandler), Value_unknown)
+      (Ucatch(i, vars, ubody, uhandler, kind), Value_unknown)
   | Ltrywith(body, id, handler, kind) ->
       let (ubody, _) = close env body in
       let (uhandler, _) = close env handler in
@@ -1447,7 +1448,7 @@ and close_switch env cases num_keys default =
   (*  Explicit sharing with catch/exit, as switcher compilation may
       later unshare *)
   let acts = store.act_get_shared () in
-  let hs = ref (fun e -> e) in
+  let hs = ref (fun _ e -> e) in
 
   (* Compile actions *)
   let actions =
@@ -1468,7 +1469,7 @@ and close_switch env cases num_keys default =
                 (string_of_lambda lam) ;
 *)
             let ohs = !hs in
-            hs := (fun e -> Ucatch (i,[],ohs e,ulam)) ;
+            hs := (fun kind e -> Ucatch (i,[],ohs kind e,ulam, kind)) ;
             Ustaticfail (i,[]))
       acts in
   match actions with
@@ -1523,7 +1524,7 @@ let collect_exported_structured_constants a =
         List.iter (fun (_,act) -> ulam act) sw ;
         Option.iter ulam d
     | Ustaticfail (_, ul) -> List.iter ulam ul
-    | Ucatch (_, _, u1, u2)
+    | Ucatch (_, _, u1, u2, _)
     | Utrywith (u1, _, u2, _)
     | Usequence (u1, u2)
     | Uwhile (u1, u2)  -> ulam u1; ulam u2

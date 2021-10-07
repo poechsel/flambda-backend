@@ -106,7 +106,7 @@ type t =
                      * Lambda.value_kind
   (** Restrictions on [Lambda.Lstringswitch] also apply to [String_switch]. *)
   | Static_raise of Static_exception.t * Variable.t list
-  | Static_catch of Static_exception.t * Variable.t list * t * t
+  | Static_catch of Static_exception.t * Variable.t list * t * t * Lambda.value_kind
   | Try_with of t * Variable.t * t * Lambda.value_kind
   | While of t * t
   | For of for_loop

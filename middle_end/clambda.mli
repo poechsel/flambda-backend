@@ -78,7 +78,8 @@ and ulambda =
       int *
       (Backend_var.With_provenance.t * value_kind) list *
       ulambda *
-      ulambda
+      ulambda *
+      Lambda.value_kind
   | Utrywith of
       ulambda *
       Backend_var.With_provenance.t *

@@ -233,6 +233,7 @@ and expression =
         * (label * (Backend_var.With_provenance.t * machtype) list
           * expression * Debuginfo.t) list
         * expression
+        * Lambda.value_kind
   | Cexit of exit_label * expression list * trap_action list
   | Ctrywith of expression * trywith_kind * Backend_var.With_provenance.t
       * expression * Debuginfo.t * Lambda.value_kind
@@ -269,7 +270,7 @@ type phrase =
 
 val ccatch :
      label * (Backend_var.With_provenance.t * machtype) list
-       * expression * expression * Debuginfo.t
+       * expression * expression * Debuginfo.t * Lambda.value_kind
   -> expression
 
 val reset : unit -> unit

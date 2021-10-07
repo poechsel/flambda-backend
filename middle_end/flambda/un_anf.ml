@@ -196,7 +196,8 @@ let make_var_info (clam : Clambda.ulambda) : var_info =
     | Ustaticfail (static_exn, args) ->
       ignore_int static_exn;
       List.iter (loop ~depth) args
-    | Ucatch (static_exn, vars, body, handler) ->
+    | Ucatch (static_exn, vars, body, handler, kind) ->
+      ignore_value_kind kind;
       ignore_int static_exn;
       ignore_params_with_value_kind vars;
       loop ~depth body;
@@ -395,7 +396,8 @@ let let_bound_vars_that_can_be_moved var_info (clam : Clambda.ulambda) =
     | Ustaticfail (static_exn, args) ->
       ignore_int static_exn;
       examine_argument_list args
-    | Ucatch (static_exn, vars, body, handler) ->
+    | Ucatch (static_exn, vars, body, handler, kind) ->
+      ignore_value_kind kind;
       ignore_int static_exn;
       ignore_params_with_value_kind vars;
       let_stack := [];
@@ -560,10 +562,10 @@ let rec substitute_let_moveable is_let_moveable env (clam : Clambda.ulambda)
   | Ustaticfail (n, args) ->
     let args = substitute_let_moveable_list is_let_moveable env args in
     Ustaticfail (n, args)
-  | Ucatch (n, vars, body, handler) ->
+  | Ucatch (n, vars, body, handler, kind) ->
     let body = substitute_let_moveable is_let_moveable env body in
     let handler = substitute_let_moveable is_let_moveable env handler in
-    Ucatch (n, vars, body, handler)
+    Ucatch (n, vars, body, handler, kind)
   | Utrywith (body, var, handler, kind) ->
     let body = substitute_let_moveable is_let_moveable env body in
     let handler = substitute_let_moveable is_let_moveable env handler in
@@ -780,10 +782,10 @@ let rec un_anf_and_moveable var_info env (clam : Clambda.ulambda)
   | Ustaticfail (n, args) ->
     let args = un_anf_list var_info env args in
     Ustaticfail (n, args), Fixed
-  | Ucatch (n, vars, body, handler) ->
+  | Ucatch (n, vars, body, handler, kind) ->
     let body = un_anf var_info env body in
     let handler = un_anf var_info env handler in
-    Ucatch (n, vars, body, handler), Fixed
+    Ucatch (n, vars, body, handler, kind), Fixed
   | Utrywith (body, var, handler, kind) ->
     let body = un_anf var_info env body in
     let handler = un_anf var_info env handler in

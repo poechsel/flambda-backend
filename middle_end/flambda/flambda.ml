@@ -70,7 +70,7 @@ type t =
   | String_switch of Variable.t * (string * t) list * t option
                      * Lambda.value_kind
   | Static_raise of Static_exception.t * Variable.t list
-  | Static_catch of Static_exception.t * Variable.t list * t * t
+  | Static_catch of Static_exception.t * Variable.t list * t * t * Lambda.value_kind
   | Try_with of t * Variable.t * t * Lambda.value_kind
   | While of t * t
   | For of for_loop
@@ -313,7 +313,7 @@ let rec lam ppf (flam : t) =
       let lams ppf largs =
         List.iter (fun l -> fprintf ppf "@ %a" Variable.print l) largs in
       fprintf ppf "@[<2>(exit@ %a%a)@]" Static_exception.print i lams ls;
-  | Static_catch(i, vars, lbody, lhandler) ->
+  | Static_catch(i, vars, lbody, lhandler, _kind) ->
       fprintf ppf "@[<2>(catch@ %a@;<1 -1>with (%a%a)@ %a)@]"
         lam lbody Static_exception.print i
         (fun ppf vars -> match vars with
@@ -580,7 +580,7 @@ let rec variables_usage ?ignore_uses_as_callee ?ignore_uses_as_argument
         Option.iter aux failaction
       | Static_raise (_, es) ->
         List.iter free_variable es
-      | Static_catch (_, vars, e1, e2) ->
+      | Static_catch (_, vars, e1, e2, _) ->
         List.iter bound_variable vars;
         aux e1;
         aux e2
@@ -789,7 +789,7 @@ let iter_general ~toplevel f f_named maybe_named =
         aux body
       | Try_with (f1,_,f2, _)
       | While (f1,f2)
-      | Static_catch (_,_,f1,f2) ->
+      | Static_catch (_,_,f1,f2, _) ->
         aux f1; aux f2
       | For { body; _ } -> aux body
       | If_then_else (_, f1, f2, _) ->

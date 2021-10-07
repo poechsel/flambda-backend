@@ -466,7 +466,7 @@ let rec_catch_for_while_loop env cond body =
               ( Lvar cond_result,
                 Lsequence (body, Lstaticraise (cont, [])),
                 Lconst (Const_base (Const_int 0)),
-                Pgenval ) ) )
+                Pgenval ) ), Pgenval )
   in
   env, lam
 
@@ -517,7 +517,7 @@ let rec_catch_for_for_loop env ident start stop (dir : Asttypes.direction_flag)
                           ( subsequent_test,
                             Lstaticraise (cont, [next_value_of_counter]),
                             L.lambda_unit,
-                            Pgenval ) ) ),
+                            Pgenval ) ), Pgenval ),
                 L.lambda_unit,
                 Pgenval ) ) )
   in
@@ -807,7 +807,7 @@ let rec cps_non_tail acc env ccenv (lam : L.lambda)
         in
         compile_staticfail acc env ccenv ~continuation ~args:(args @ extra_args))
       k_exn
-  | Lstaticcatch (body, (static_exn, args), handler) ->
+  | Lstaticcatch (body, (static_exn, args), handler, _kind) ->
     let result_var = Ident.create_local "staticcatch_result" in
     let_cont_nonrecursive_with_extra_params acc env ccenv ~is_exn_handler:false
       ~params:[result_var, IR.Not_user_visible, Pgenval]
@@ -1127,7 +1127,7 @@ and cps_tail acc env ccenv (lam : L.lambda) (k : Continuation.t)
         in
         compile_staticfail acc env ccenv ~continuation ~args:(args @ extra_args))
       k_exn
-  | Lstaticcatch (body, (static_exn, args), handler) ->
+  | Lstaticcatch (body, (static_exn, args), handler, _kind) ->
     let continuation = Continuation.create () in
     let { Env.body_env; handler_env; extra_params } =
       Env.add_static_exn_continuation env static_exn continuation

@@ -341,7 +341,7 @@ let create_loop body dbg =
   let cont = Lambda.next_raise_count () in
   let call_cont = Cexit (Lbl cont, [], []) in
   let body = Csequence (body, call_cont) in
-  Ccatch (Recursive, [cont, [], body, dbg], call_cont)
+  Ccatch (Recursive, [cont, [], body, dbg], call_cont, Pgenval)
 
 (* Turning integer divisions into multiply-high then shift.
    The [division_parameters] function is used in module Emit for
@@ -626,9 +626,9 @@ let rec remove_unit = function
       Cswitch(sel, index,
         Array.map (fun (case, dbg) -> remove_unit case, dbg) cases,
         dbg, kind)
-  | Ccatch(rec_flag, handlers, body) ->
+  | Ccatch(rec_flag, handlers, body, kind) ->
       let map_h (n, ids, handler, dbg) = (n, ids, remove_unit handler, dbg) in
-      Ccatch(rec_flag, List.map map_h handlers, remove_unit body)
+      Ccatch(rec_flag, List.map map_h handlers, remove_unit body, kind)
   | Ctrywith(body, kind, exn, handler, dbg, value_kind) ->
     Ctrywith(remove_unit body, kind, exn, remove_unit handler, dbg, value_kind)
   | Clet(id, c1, c2) ->
@@ -1618,7 +1618,7 @@ struct
     make_switch arg cases actions dbg value_kind
   let bind arg body = bind "switcher" arg body
 
-  let make_catch handler = match handler with
+  let make_catch kind handler = match handler with
   | Cexit (Lbl i,[],[]) -> i,fun e -> e
   | _ ->
       let dbg = Debuginfo.none in
@@ -1633,7 +1633,7 @@ struct
       | Cexit (j,_,_) ->
           if Lbl i = j then handler
           else body
-      | _ ->  ccatch (i,[],body,handler, dbg))
+      | _ ->  ccatch (i,[],body,handler, dbg, kind))
 
   let make_exit i = Cexit (Lbl i,[],[])
 
@@ -1861,7 +1861,7 @@ let cache_public_method meths tag cache dbg =
            dbg, Pintval (* unit *)))))
        dbg,
      Ctuple [],
-     dbg),
+     dbg, Pintval (* unit *)),
   Clet (
     VP.create tagged,
       Cop(Caddi, [lsl_const (Cvar li) log2_size_addr dbg;

@@ -127,7 +127,7 @@ sig
   val make_isin : act -> act -> act
   val make_if : value_kind -> act -> act -> act -> act
   val make_switch : loc -> value_kind -> act -> int array -> act array -> act
-  val make_catch : act -> int * (act -> act)
+  val make_catch : value_kind -> act -> int * (act -> act)
   val make_exit : int -> act
 end
 
@@ -854,14 +854,14 @@ let rec pkey chan  = function
     let clusters = make_clusters loc kind s n_clusters k in
     c_test kind {arg=arg ; off=0} clusters
 
-  let abstract_shared actions =
+  let abstract_shared kind actions =
     let handlers = ref (fun x -> x) in
     let actions =
       Array.map
         (fun act -> match  act with
            | Single act -> act
            | Shared act ->
-               let i,h = Arg.make_catch act in
+               let i,h = Arg.make_catch kind act in
                let oh = !handlers in
                handlers := (fun act -> h (oh act)) ;
                Arg.make_exit i)
@@ -871,13 +871,13 @@ let rec pkey chan  = function
   let zyva loc kind lh arg cases actions =
     assert (Array.length cases > 0) ;
     let actions = actions.act_get_shared () in
-    let hs,actions = abstract_shared actions in
+    let hs,actions = abstract_shared kind actions in
     hs (do_zyva loc kind lh arg cases actions)
 
   and test_sequence kind arg cases actions =
     assert (Array.length cases > 0) ;
     let actions = actions.act_get_shared () in
-    let hs,actions = abstract_shared actions in
+    let hs,actions = abstract_shared kind actions in
     let old_ok = !ok_inter in
     ok_inter := false ;
     if !ok_inter <> old_ok then Hashtbl.clear t ;

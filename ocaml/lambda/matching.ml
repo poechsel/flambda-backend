@@ -981,12 +981,12 @@ end)
 let make_exit i = Lstaticraise (i, [])
 
 (* Introduce a catch, if worth it *)
-let make_catch d k =
+let make_catch kind d k =
   match d with
   | Lstaticraise (_, []) -> k d
   | _ ->
       let e = next_raise_count () in
-      Lstaticcatch (k (make_exit e), (e, []), d)
+      Lstaticcatch (k (make_exit e), (e, []), d, kind)
 
 (* Introduce a catch, if worth it, delayed version *)
 let rec as_simple_exit = function
@@ -994,7 +994,7 @@ let rec as_simple_exit = function
   | Llet (Alias, _k, _, _, e) -> as_simple_exit e
   | _ -> None
 
-let make_catch_delayed handler =
+let make_catch_delayed kind handler =
   match as_simple_exit handler with
   | Some i -> (i, fun act -> act)
   | None -> (
@@ -1010,7 +1010,7 @@ let make_catch_delayed handler =
                 handler
               else
                 body
-          | _ -> Lstaticcatch (body, (i, []), handler) )
+          | _ -> Lstaticcatch (body, (i, []), handler, kind) )
     )
 
 let raw_action l =
@@ -2151,7 +2151,7 @@ let expand_stringswitch loc kind arg sw d =
   | None -> bind_sw arg (fun arg -> do_make_string_test_tree loc kind arg sw 0 None)
   | Some e ->
       bind_sw arg (fun arg ->
-          make_catch e (fun d ->
+          make_catch kind e (fun d ->
               do_make_string_test_tree loc kind arg sw 1 (Some d)))
 
 (**********************)
@@ -2161,20 +2161,20 @@ let expand_stringswitch loc kind arg sw d =
 (* Sharing *)
 
 (* Add handler, if shared *)
-let handle_shared () =
+let handle_shared kind =
   let hs = ref (fun x -> x) in
   let handle_shared act =
     match act with
     | Switch.Single act -> act
     | Switch.Shared act ->
-        let i, h = make_catch_delayed act in
+        let i, h = make_catch_delayed kind act in
         let ohs = !hs in
         (hs := fun act -> h (ohs act));
         make_exit i
   in
   (hs, handle_shared)
 
-let share_actions_tree sw d =
+let share_actions_tree kind sw d =
   let store = StoreExp.mk_store () in
   (* Default action is always shared *)
   let d =
@@ -2189,7 +2189,7 @@ let share_actions_tree sw d =
   (* Retrieve all actions, including potential default *)
   let acts = store.Switch.act_get_shared () in
   (* Array of actual actions *)
-  let hs, handle_shared = handle_shared () in
+  let hs, handle_shared = handle_shared kind in
   let acts = Array.map handle_shared acts in
   (* Reconstruct default and switch list *)
   let d =
@@ -2236,7 +2236,7 @@ let rec do_tests_nofail value_kind loc tst arg = function
 let make_test_sequence value_kind loc fail tst lt_tst arg const_lambda_list =
   let const_lambda_list = sort_lambda_list const_lambda_list in
   let hs, const_lambda_list, fail =
-    share_actions_tree const_lambda_list fail
+    share_actions_tree value_kind const_lambda_list fail
   in
   let rec make_test_sequence const_lambda_list =
     if List.length const_lambda_list >= 4 && lt_tst <> Pignore then
@@ -2323,7 +2323,7 @@ module SArg = struct
 end
 
 (* Action sharing for Lswitch argument *)
-let share_actions_sw sw =
+let share_actions_sw kind sw =
   (* Attempt sharing on all actions *)
   let store = StoreExp.mk_store () in
   let fail =
@@ -2339,7 +2339,7 @@ let share_actions_sw sw =
     List.map (fun (i, e) -> (i, store.Switch.act_store () e)) sw.sw_blocks
   in
   let acts = store.Switch.act_get_shared () in
-  let hs, handle_shared = handle_shared () in
+  let hs, handle_shared = handle_shared kind in
   let acts = Array.map handle_shared acts in
   let fail =
     match fail with
@@ -2651,7 +2651,7 @@ let combine_constant value_kind loc arg cst partial ctx def
               | _ -> assert false)
             const_lambda_list
         in
-        let hs, sw, fail = share_actions_tree sw fail in
+        let hs, sw, fail = share_actions_tree value_kind sw fail in
         hs (Lstringswitch (arg, sw, fail, loc, value_kind))
     | Const_float _ ->
         make_test_sequence value_kind loc fail (Pfloatcomp CFneq)
@@ -2809,7 +2809,7 @@ let combine_constructor value_kind loc arg pat_env cstr partial ctx def
                         sw_failaction = fail_opt
                       }
                     in
-                    let hs, sw = share_actions_sw sw in
+                    let hs, sw = share_actions_sw value_kind sw in
                     let sw = reintroduce_fail sw in
                     hs (Lswitch (arg, sw, loc, value_kind))
               )
@@ -2967,14 +2967,14 @@ let compile_list compile_fun division =
   in
   c_rec [] division
 
-let compile_orhandlers compile_fun lambda1 total1 ctx to_catch =
+let compile_orhandlers value_kind compile_fun lambda1 total1 ctx to_catch =
   let rec do_rec r total_r = function
     | [] -> (r, total_r)
     | { provenance = mat; exit = i; vars; pm } :: rem -> (
         let ctx = Context.select_columns mat ctx in
         match compile_fun ctx pm with
         | exception Unused ->
-          do_rec (Lstaticcatch (r, (i, vars), lambda_unit)) total_r rem
+          do_rec (Lstaticcatch (r, (i, vars), lambda_unit, Pintval)) total_r rem
         | handler_i, total_i ->
           begin match raw_action r with
           | Lstaticraise (j, args) ->
@@ -2987,7 +2987,7 @@ let compile_orhandlers compile_fun lambda1 total1 ctx to_catch =
                 do_rec r total_r rem
           | _ ->
               do_rec
-                (Lstaticcatch (r, (i, vars), handler_i))
+                (Lstaticcatch (r, (i, vars), handler_i, value_kind))
                 (Jumps.union (Jumps.remove i total_r)
                    (Jumps.map (Context.rshift_num (ncols mat)) total_i))
                 rem
@@ -3061,7 +3061,7 @@ let comp_exit ctx m =
   | Some ((_, i), _) -> (Lstaticraise (i, []), Jumps.singleton i ctx)
   | None -> fatal_error "Matching.comp_exit"
 
-let rec comp_match_handlers comp_fun partial ctx first_match next_matchs =
+let rec comp_match_handlers value_kind comp_fun partial ctx first_match next_matchs =
   match next_matchs with
   | [] -> comp_fun partial ctx first_match
   | rem -> (
@@ -3081,12 +3081,12 @@ let rec comp_match_handlers comp_fun partial ctx first_match next_matchs =
               match comp_fun partial ctx_i pm with
               | li, total_i ->
                 c_rec
-                  (Lstaticcatch (body, (i, []), li))
+                  (Lstaticcatch (body, (i, []), li, value_kind))
                   (Jumps.union total_i total_rem)
                   rem
               | exception Unused ->
                 c_rec
-                  (Lstaticcatch (body, (i, []), lambda_unit))
+                  (Lstaticcatch (body, (i, []), lambda_unit, Pintval))
                   total_rem rem
             end
           )
@@ -3097,7 +3097,7 @@ let rec comp_match_handlers comp_fun partial ctx first_match next_matchs =
       | exception Unused -> (
         match next_matchs with
         | [] -> raise Unused
-        | (_, x) :: xs -> comp_match_handlers comp_fun partial ctx x xs
+        | (_, x) :: xs -> comp_match_handlers value_kind comp_fun partial ctx x xs
       )
     )
 
@@ -3174,7 +3174,7 @@ and compile_match_simplified ~scopes value_kind  repr partial ctx
 and combine_handlers ~scopes value_kind repr partial ctx (v, str, arg)
     first_match rem =
   let lam, total =
-    comp_match_handlers
+    comp_match_handlers value_kind
       (( if dbg then
          do_compile_matching_pr ~scopes value_kind
        else
@@ -3272,7 +3272,7 @@ and do_compile_matching ~scopes value_kind repr partial ctx pmh =
   | PmOr { body; handlers } ->
       let lam, total =
         compile_match_simplified ~scopes value_kind repr partial ctx body in
-      compile_orhandlers (compile_match ~scopes value_kind repr partial)
+      compile_orhandlers value_kind (compile_match ~scopes value_kind repr partial)
         lam total ctx handlers
 
 and compile_no_test ~scopes value_kind divide up_ctx repr partial ctx to_match =
@@ -3407,7 +3407,7 @@ let check_total ~scopes loc ~failer total lambda i =
     lambda
   else
     Lstaticcatch (lambda, (i, []),
-                  failure_handler ~scopes loc ~failer ())
+                  failure_handler ~scopes loc ~failer (), Pgenval)
 
 let compile_matching ~scopes value_kind loc ~failer repr arg pat_act_list partial =
   let partial = check_partial pat_act_list partial in
@@ -3517,8 +3517,8 @@ let rec map_return f = function
   | Lsequence (l1, l2) -> Lsequence (l1, map_return f l2)
   | Levent (l, ev) -> Levent (map_return f l, ev)
   | Ltrywith (l1, id, l2, k) -> Ltrywith (map_return f l1, id, map_return f l2, k)
-  | Lstaticcatch (l1, b, l2) ->
-      Lstaticcatch (map_return f l1, b, map_return f l2)
+  | Lstaticcatch (l1, b, l2, k) ->
+      Lstaticcatch (map_return f l1, b, map_return f l2, k)
   | Lswitch (s, sw, loc, k) ->
       let map_cases cases =
         List.map (fun (i, l) -> (i, map_return f l)) cases
@@ -3615,7 +3615,7 @@ let for_let ~scopes loc param pat body_kind body =
       let bind =
         map_return (assign_pat ~scopes body_kind opt nraise ids loc pat) param in
       if !opt then
-        Lstaticcatch (bind, (nraise, ids_with_kinds), body)
+        Lstaticcatch (bind, (nraise, ids_with_kinds), body, body_kind)
       else
         simple_for_let ~scopes body_kind loc param pat body
 
@@ -3714,9 +3714,11 @@ let compile_flattened ~scopes value_kind repr partial ctx pmh =
   | FPm pm -> compile_match_nonempty value_kind ~scopes repr partial ctx pm
   | FPmOr { body = b; handlers = hs } ->
       let lam, total =
-        compile_match_nonempty  value_kind~scopes repr partial ctx b
+        compile_match_nonempty value_kind ~scopes repr partial ctx b
       in
-      compile_orhandlers (compile_match ~scopes value_kind repr partial) lam total ctx hs
+      compile_orhandlers value_kind
+        (compile_match ~scopes value_kind repr partial)
+        lam total ctx hs
 
 let do_for_multiple_match ~scopes value_kind loc paraml pat_act_list partial =
   let repr = None in
@@ -3764,7 +3766,7 @@ let do_for_multiple_match ~scopes value_kind loc paraml pat_act_list partial =
           List.map (fun (e, pm) -> (e, flatten_precompiled size args pm)) nexts
         in
         let lam, total =
-          comp_match_handlers (compile_flattened ~scopes value_kind repr) partial
+          comp_match_handlers value_kind (compile_flattened ~scopes value_kind repr) partial
             (Context.start size) flat_next flat_nexts
         in
         List.fold_right2 (bind Strict) idl paraml

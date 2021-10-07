@@ -65,7 +65,7 @@ let variables_not_used_as_local_reference (tree:Flambda.t) =
       set := Variable.Set.add cond !set;
       List.iter (fun (_, branch) -> loop branch) branches;
       Option.iter loop default
-    | Static_catch (_, _, body, handler) ->
+    | Static_catch (_, _, body, handler, _) ->
       loop body;
       loop handler
     | Try_with (body, _, handler, _kind) ->

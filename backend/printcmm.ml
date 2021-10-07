@@ -293,7 +293,7 @@ let rec expr ppf = function
         fprintf ppf "@ @[<2>%t@ %a@]" (print_case i) sequence (fst cases.(i))
        done in
       fprintf ppf "@[<v 0>@[<2>(switch@ %a@ @]%t)@]" expr e1 print_cases)
-  | Ccatch(flag, handlers, e1) ->
+  | Ccatch(flag, handlers, e1, _kind) ->
       let print_handler ppf (i, ids, e2, dbg) =
         with_location_mapping ~label:"Ccatch-handler" ~dbg ppf (fun () ->
         fprintf ppf "(%d%a)@ %a"

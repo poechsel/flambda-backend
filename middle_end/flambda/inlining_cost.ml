@@ -105,7 +105,7 @@ let lambda_smaller' lam ~than:threshold =
         sw;
       Option.iter lambda_size def
     | Static_raise _ -> ()
-    | Static_catch (_, _, body, handler) ->
+    | Static_catch (_, _, body, handler, _) ->
       incr size; lambda_size body; lambda_size handler
     | Try_with (body, _, handler, _) ->
       size := !size + 8; lambda_size body; lambda_size handler

@@ -177,8 +177,9 @@ let variable_and_symbol_invariants (program : Flambda.program) =
       check_variable_is_bound env from_value;
       check_variable_is_bound env to_value;
       loop (add_binding_occurrence env bound_var) body
-    | Static_catch (static_exn, vars, body, handler) ->
+    | Static_catch (static_exn, vars, body, handler, kind) ->
       ignore_static_exception static_exn;
+      ignore_value_kind kind;
       loop env body;
       loop (add_binding_occurrences env vars) handler
     | Try_with (body, var, handler, kind) ->
@@ -618,7 +619,7 @@ let every_static_exception_is_caught flam =
   in
   let rec loop env (flam : Flambda.t) =
     match flam with
-    | Static_catch (i, _, body, handler) ->
+    | Static_catch (i, _, body, handler, _kind) ->
       let env = Static_exception.Set.add i env in
       loop env handler;
       loop env body
@@ -633,7 +634,7 @@ let every_static_exception_is_caught_at_a_single_position flam =
   let caught = ref Static_exception.Set.empty in
   let f (flam : Flambda.t) =
     match flam with
-    | Static_catch (i, _, _body, _handler) ->
+    | Static_catch (i, _, _body, _handler, _kind) ->
       if Static_exception.Set.mem i !caught then
         raise (Static_exception_caught_in_multiple_places i);
       caught := Static_exception.Set.add i !caught

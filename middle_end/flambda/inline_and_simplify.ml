@@ -1176,13 +1176,13 @@ and simplify env r (tree : Flambda.t) : Flambda.t * R.t =
     simplify_free_variables env args ~f:(fun _env args _args_approxs ->
       let r = R.use_static_exception r i in
       Static_raise (i, args), ret r A.value_bottom)
-  | Static_catch (i, vars, body, handler) ->
+  | Static_catch (i, vars, body, handler, kind) ->
     begin
       match body with
       | Let { var; defining_expr = def; body; _ }
           when not (Flambda_utils.might_raise_static_exn def i) ->
         simplify env r
-          (Flambda.create_let var def (Static_catch (i, vars, body, handler)))
+          (Flambda.create_let var def (Static_catch (i, vars, body, handler, kind)))
       | _ ->
         let i, sb = Freshening.add_static_exception (E.freshening env) i in
         let env = E.set_freshening env sb in
@@ -1214,7 +1214,7 @@ and simplify env r (tree : Flambda.t) : Flambda.t * R.t =
             let env = E.inside_branch env in
             let handler, r = simplify env r handler in
             let r = R.exit_scope_catch r i in
-            Static_catch (i, vars, body, handler),
+            Static_catch (i, vars, body, handler, kind),
               R.meet_approx r env approx
         end
     end

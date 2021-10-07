@@ -557,7 +557,7 @@ let trap_return arg trap_actions =
 
 let ccatch ~rec_flag ~handlers ~body =
   let rec_flag = if rec_flag then Cmm.Recursive else Cmm.Nonrecursive in
-  Cmm.Ccatch (rec_flag, handlers, body)
+  Cmm.Ccatch (rec_flag, handlers, body, Pgenval)
 
 (* Function calls *)
 

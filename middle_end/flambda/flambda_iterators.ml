@@ -36,7 +36,7 @@ let apply_on_subexpressions f f_named (flam : Flambda.t) =
   | String_switch (_, sw, def, _kind) ->
     List.iter (fun (_,l) -> f l) sw;
     Option.iter f def
-  | Static_catch (_,_,f1,f2) ->
+  | Static_catch (_,_,f1,f2, _) ->
     f f1; f f2;
   | Try_with (f1,_,f2, _kind) ->
     f f1; f f2
@@ -125,13 +125,13 @@ let map_subexpressions f f_named (tree:Flambda.t) : Flambda.t =
       tree
     else
       String_switch(arg, new_sw, new_def, kind)
-  | Static_catch (i, vars, body, handler) ->
+  | Static_catch (i, vars, body, handler, kind) ->
     let new_body = f body in
     let new_handler = f handler in
     if new_body == body && new_handler == handler then
       tree
     else
-      Static_catch (i, vars, new_body, new_handler)
+      Static_catch (i, vars, new_body, new_handler, kind)
   | Try_with(body, id, handler, kind) ->
     let new_body = f body in
     let new_handler = f handler in
@@ -349,13 +349,13 @@ let map_general ~toplevel f f_named tree =
             tree
           else
             String_switch(arg, sw, def, kind)
-        | Static_catch (i, vars, body, handler) ->
+        | Static_catch (i, vars, body, handler, kind) ->
           let new_body = aux body in
           let new_handler = aux handler in
           if new_body == body && new_handler == handler then
             tree
           else
-            Static_catch (i, vars, new_body, new_handler)
+            Static_catch (i, vars, new_body, new_handler, kind)
         | Try_with(body, id, handler, kind) ->
           let new_body = aux body in
           let new_handler = aux handler in

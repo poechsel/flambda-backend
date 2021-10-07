@@ -301,7 +301,7 @@ type lambda =
   | Lstringswitch of
       lambda * (string * lambda) list * lambda option * scoped_location * value_kind
   | Lstaticraise of int * lambda list
-  | Lstaticcatch of lambda * (int * (Ident.t * value_kind) list) * lambda
+  | Lstaticcatch of lambda * (int * (Ident.t * value_kind) list) * lambda * value_kind
   | Ltrywith of lambda * Ident.t * lambda * value_kind
 (* Lifthenelse (e, t, f) evaluates t if e evaluates to 0, and
    evaluates f if e evaluates to any other value *)

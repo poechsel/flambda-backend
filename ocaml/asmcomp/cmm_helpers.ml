@@ -1526,7 +1526,7 @@ struct
     make_switch arg cases actions dbg
   let bind arg body = bind "switcher" arg body
 
-  let make_catch handler = match handler with
+  let make_catch () handler = match handler with
   | Cexit (i,[]) -> i,fun e -> e
   | _ ->
       let dbg = Debuginfo.none in

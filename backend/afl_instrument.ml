@@ -81,12 +81,12 @@ and instrument = function
   | Ctuple es -> Ctuple (List.map instrument es)
   | Cop (op, es, dbg) -> Cop (op, List.map instrument es, dbg)
   | Csequence (e1, e2) -> Csequence (instrument e1, instrument e2)
-  | Ccatch (isrec, cases, body) ->
+  | Ccatch (isrec, cases, body, kind) ->
      let cases =
        List.map (fun (nfail, ids, e, dbg) -> nfail, ids, instrument e, dbg)
          cases
      in
-     Ccatch (isrec, cases, instrument body)
+     Ccatch (isrec, cases, instrument body, kind)
   | Cexit (ex, args, traps) -> Cexit (ex, List.map instrument args, traps)
 
   (* these are base cases and have no logging *)

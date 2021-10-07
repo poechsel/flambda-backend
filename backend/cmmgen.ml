@@ -394,8 +394,12 @@ let rec is_unboxed_number_cmm = function
       join_unboxed_number_kind ~strict:(is_strict kind)
         (is_unboxed_number_cmm a)
         (is_unboxed_number_cmm b)
-    | Ccatch _ ->
-      No_unboxing
+    | Ccatch (_, handlers, body, kind) ->
+      let strict = is_strict kind in
+      List.fold_left
+        (join_unboxed_number_kind ~strict)
+        (is_unboxed_number_cmm body)
+        (List.map (fun (_, _, e, _) -> is_unboxed_number_cmm e) handlers)
 
 (* Translate an expression *)
 
@@ -647,13 +651,13 @@ let rec transl env e =
       notify_catch nfail env cargs;
       let traps = mk_traps env nfail in
       Cexit (Lbl nfail, cargs, traps)
-  | Ucatch(nfail, [], body, handler) ->
+  | Ucatch(nfail, [], body, handler, kind) ->
       let dbg = Debuginfo.none in
       let env_body = enter_catch_body env nfail in
-      make_catch nfail (transl env_body body) (transl env handler) dbg
-  | Ucatch(nfail, ids, body, handler) ->
+      make_catch kind nfail (transl env_body body) (transl env handler) dbg
+  | Ucatch(nfail, ids, body, handler, kind) ->
       let dbg = Debuginfo.none in
-      transl_catch env nfail ids body handler dbg
+      transl_catch kind env nfail ids body handler dbg
   | Utrywith(body, exn, handler, kind) ->
       let dbg = Debuginfo.none in
       let new_body = transl (incr_depth env) body in
@@ -678,7 +682,7 @@ let rec transl env e =
                     )
               dbg,
             Ctuple [],
-            dbg))
+            dbg, Pgenval))
   | Ufor(id, low, high, dir, body) ->
       let dbg = Debuginfo.none in
       let tst = match dir with Upto -> Cgt   | Downto -> Clt in
@@ -713,7 +717,7 @@ let rec transl env e =
                       dbg,
                    dbg, Pintval (* unit*)),
                  Ctuple [],
-                 dbg))))
+                 dbg, Pintval (* unit *)))))
   | Uassign(id, exp) ->
       let dbg = Debuginfo.none in
       let cexp = transl env exp in
@@ -727,7 +731,7 @@ let rec transl env e =
       let dbg = Debuginfo.none in
       Cop(Cload (Word_int, Mutable), [Cconst_int (0, dbg)], dbg)
 
-and transl_catch env nfail ids body handler dbg =
+and transl_catch kind env nfail ids body handler dbg =
   let ids = List.map (fun (id, kind) -> (id, kind, ref No_result)) ids in
   (* Translate the body, and while doing so, collect the "unboxing type" for
      each argument.  *)
@@ -760,7 +764,7 @@ and transl_catch env nfail ids body handler dbg =
   in
   if env == new_env then
     (* No unboxing *)
-    ccatch (nfail, ids, body, transl env handler, dbg)
+    ccatch (nfail, ids, body, transl env handler, dbg, kind)
   else
     (* allocate new "nfail" to catch errors more easily *)
     let new_nfail = next_raise_count () in
@@ -774,7 +778,7 @@ and transl_catch env nfail ids body handler dbg =
       in
       aux body
     in
-    ccatch (new_nfail, ids, body, transl new_env handler, dbg)
+    ccatch (new_nfail, ids, body, transl new_env handler, dbg, kind)
 
 and transl_make_array dbg env kind args =
   match kind with
@@ -1210,20 +1214,21 @@ and transl_let env str kind id exp body =
       | Mutable, bn -> Clet_mut (v, typ_of_boxed_number bn, cexp, body)
       end
 
-and make_catch ncatch body handler dbg = match body with
+and make_catch kind ncatch body handler dbg = match body with
 | Cexit (Lbl nexit,[],[]) when nexit=ncatch -> handler
-| _ ->  ccatch (ncatch, [], body, handler, dbg)
+| _ ->  ccatch (ncatch, [], body, handler, dbg, kind)
 
 and is_shareable_cont exp =
   match exp with
   | Cexit (_,[],[]) -> true
   | _ -> false
 
-and make_shareable_cont dbg mk exp =
+and make_shareable_cont kind dbg mk exp =
   if is_shareable_cont exp then mk exp
   else begin
     let nfail = next_raise_count () in
     make_catch
+      kind
       nfail
       (mk (Cexit (Lbl nfail,[],[])))
       exp
@@ -1287,9 +1292,9 @@ and transl_if env (kind : Lambda.value_kind) (approx : then_else)
       let inner_dbg = Debuginfo.none in
       let ifso_dbg = Debuginfo.none in
       let ifnot_dbg = Debuginfo.none in
-      make_shareable_cont then_dbg
+      make_shareable_cont kind then_dbg
         (fun shareable_then ->
-           make_shareable_cont else_dbg
+           make_shareable_cont kind else_dbg
              (fun shareable_else ->
                 mk_if_then_else
                   inner_dbg kind (test_bool inner_dbg (transl env cond))
@@ -1321,7 +1326,7 @@ and transl_sequand env kind (approx : then_else)
       (arg2_dbg : Debuginfo.t) arg2
       (then_dbg : Debuginfo.t) then_
       (else_dbg : Debuginfo.t) else_ =
-  make_shareable_cont else_dbg
+  make_shareable_cont kind else_dbg
     (fun shareable_else ->
        transl_if env kind Unknown
          arg1_dbg arg1
@@ -1337,7 +1342,7 @@ and transl_sequor env kind (approx : then_else)
       (arg2_dbg : Debuginfo.t) arg2
       (then_dbg : Debuginfo.t) then_
       (else_dbg : Debuginfo.t) else_ =
-  make_shareable_cont then_dbg
+  make_shareable_cont kind then_dbg
     (fun shareable_then ->
        transl_if env kind Unknown
          arg1_dbg arg1

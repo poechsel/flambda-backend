@@ -152,7 +152,7 @@ let rec check env (expr : Cmm.expression) =
   | Cswitch (body, _, branches, _, _) ->
     check env body;
     Array.iter (fun (expr, _) -> check env expr) branches
-  | Ccatch (rec_flag, handlers, body) ->
+  | Ccatch (rec_flag, handlers, body, _) ->
     let env_extended =
       List.fold_left
         (fun env (cont, args, _, _) ->

@@ -521,13 +521,13 @@ let rec close t env (lam : Lambda.lambda) : Flambda.t =
       ~create_body:(fun args ->
         let static_exn = Env.find_static_exception env i in
         Static_raise (static_exn, args))
-  | Lstaticcatch (body, (i, ids), handler) ->
+  | Lstaticcatch (body, (i, ids), handler, kind) ->
     let st_exn = Static_exception.create () in
     let env = Env.add_static_exception env i st_exn in
     let ids = List.map fst ids in
     let vars = List.map Variable.create_with_same_name_as_ident ids in
     Static_catch (st_exn, vars, close t env body,
-      close t (Env.add_vars env ids vars) handler)
+      close t (Env.add_vars env ids vars) handler, kind)
   | Ltrywith (body, id, handler, kind) ->
     let var = Variable.create_with_same_name_as_ident id in
     Try_with (close t env body, var, close t (Env.add_var env id var) handler,
