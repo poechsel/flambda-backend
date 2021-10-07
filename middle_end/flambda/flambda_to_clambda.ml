@@ -274,7 +274,7 @@ let rec to_clambda t env (flam : Flambda.t) : Clambda.ulambda =
       subst_vars env args, dbg)
   | Apply { probe = Some {name}; _ } ->
     Misc.fatal_errorf "Cannot apply indirect handler for probe %s" name ()
-  | Switch (arg, sw, kind) ->
+  | Switch (arg, sw) ->
     let aux () : Clambda.ulambda =
       let const_index, const_actions =
         to_clambda_switch t env sw.consts sw.numconsts sw.failaction
@@ -288,7 +288,7 @@ let rec to_clambda t env (flam : Flambda.t) : Clambda.ulambda =
           us_index_blocks = block_index;
           us_actions_blocks = block_actions;
         },
-        Debuginfo.none, kind)  (* debug info will be added by GPR#855 *)
+        Debuginfo.none, sw.kind)  (* debug info will be added by GPR#855 *)
     in
     (* Check that the [failaction] may be duplicated.  If this is not the
        case, share it through a static raise / static catch. *)
@@ -307,7 +307,7 @@ let rec to_clambda t env (flam : Flambda.t) : Clambda.ulambda =
         }
       in
       let expr : Flambda.t =
-        Static_catch (exn, [], Switch (arg, sw, kind), failaction)
+        Static_catch (exn, [], Switch (arg, sw), failaction)
       in
       to_clambda t env expr
     end

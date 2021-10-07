@@ -29,7 +29,7 @@ let apply_on_subexpressions f f_named (flam : Flambda.t) =
   | Let_rec (defs, body) ->
     List.iter (fun (_,l) -> f_named l) defs;
     f body
-  | Switch (_, sw, _kind) ->
+  | Switch (_, sw) ->
     List.iter (fun (_,l) -> f l) sw.consts;
     List.iter (fun (_,l) -> f l) sw.blocks;
     Option.iter f sw.failaction
@@ -100,7 +100,7 @@ let map_subexpressions f f_named (tree:Flambda.t) : Flambda.t =
       tree
     else
       Let_mutable { mutable_let with body = new_body }
-  | Switch (arg, sw, kind) ->
+  | Switch (arg, sw) ->
     let aux = map_snd_sharing (fun _ v -> f v) in
     let new_consts = list_map_sharing aux sw.consts in
     let new_blocks = list_map_sharing aux sw.blocks in
@@ -117,7 +117,7 @@ let map_subexpressions f f_named (tree:Flambda.t) : Flambda.t =
           blocks = new_blocks;
         }
       in
-      Switch (arg, sw, kind)
+      Switch (arg, sw)
   | String_switch (arg, sw, def, kind) ->
     let new_sw = list_map_sharing (map_snd_sharing (fun _ v -> f v)) sw in
     let new_def = may_map_sharing f def in
@@ -311,7 +311,7 @@ let map_general ~toplevel f f_named tree =
             tree
           else
             Let_rec (defs, body)
-        | Switch (arg, sw, kind) ->
+        | Switch (arg, sw) ->
           let done_something = ref false in
           let sw =
             { sw with
@@ -334,7 +334,7 @@ let map_general ~toplevel f f_named tree =
           if not !done_something then
             tree
           else
-            Switch (arg, sw, kind)
+            Switch (arg, sw)
         | String_switch (arg, sw, def, kind) ->
           let done_something = ref false in
           let sw =

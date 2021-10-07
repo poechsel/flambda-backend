@@ -56,7 +56,7 @@ let variables_not_used_as_local_reference (tree:Flambda.t) =
       set := Variable.Set.add cond !set;
       loop ifso;
       loop ifnot
-    | Switch (cond, { consts; blocks; failaction }, _kind) ->
+    | Switch (cond, { consts; blocks; failaction; kind = _ }) ->
       set := Variable.Set.add cond !set;
       List.iter (fun (_, branch) -> loop branch) consts;
       List.iter (fun (_, branch) -> loop branch) blocks;

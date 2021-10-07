@@ -209,8 +209,7 @@ let variable_and_symbol_invariants (program : Flambda.program) =
       ignore_value_kind kind;
       loop env ifso;
       loop env ifnot
-    | Switch (arg, { numconsts; consts; numblocks; blocks; failaction; },
-              kind) ->
+    | Switch (arg, { numconsts; consts; numblocks; blocks; failaction; kind }) ->
       check_variable_is_bound env arg;
       ignore_int_set numconsts;
       ignore_int_set numblocks;

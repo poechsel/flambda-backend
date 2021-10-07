@@ -506,8 +506,8 @@ let rec close t env (lam : Lambda.lambda) : Flambda.t =
           numblocks = nums sw.sw_numblocks sw.sw_blocks sw.sw_failaction;
           blocks = List.map aux sw.sw_blocks;
           failaction = Option.map (close t env) sw.sw_failaction;
-        },
-               kind))
+          kind;
+        }))
   | Lstringswitch (arg, sw, def, _, kind) ->
     let scrutinee = Variable.create Names.string_switch in
     Flambda.create_let scrutinee (Expr (close t env arg))

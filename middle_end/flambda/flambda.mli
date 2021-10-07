@@ -101,7 +101,7 @@ type t =
   | Send of send
   | Assign of assign
   | If_then_else of Variable.t * t * t * Lambda.value_kind
-  | Switch of Variable.t * switch * Lambda.value_kind
+  | Switch of Variable.t * switch
   | String_switch of Variable.t * (string * t) list * t option
                      * Lambda.value_kind
   (** Restrictions on [Lambda.Lstringswitch] also apply to [String_switch]. *)
@@ -337,6 +337,7 @@ and switch = {
   numblocks : Numbers.Int.Set.t; (** Number of tag block cases *)
   blocks : (int * t) list; (** Tag block cases *)
   failaction : t option; (** Action to take if none matched *)
+  kind : Lambda.value_kind
 }
 
 (** Equivalent to the similar type in [Lambda]. *)

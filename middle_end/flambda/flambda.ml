@@ -66,7 +66,7 @@ type t =
   | Send of send
   | Assign of assign
   | If_then_else of Variable.t * t * t * Lambda.value_kind
-  | Switch of Variable.t * switch * Lambda.value_kind
+  | Switch of Variable.t * switch
   | String_switch of Variable.t * (string * t) list * t option
                      * Lambda.value_kind
   | Static_raise of Static_exception.t * Variable.t list
@@ -137,6 +137,7 @@ and switch = {
   numblocks : Numbers.Int.Set.t;
   blocks : (int * t) list;
   failaction : t option;
+  kind:  Lambda.value_kind;
 }
 
 and for_loop = {
@@ -267,7 +268,7 @@ let rec lam ppf (flam : t) =
           id_arg_list in
       fprintf ppf
         "@[<2>(letrec@ (@[<hv 1>%a@])@ %a)@]" bindings id_arg_list lam body
-  | Switch(larg, sw, _kind) ->
+  | Switch(larg, sw) ->
       let switch ppf (sw : switch) =
         let spc = ref false in
         List.iter
@@ -568,7 +569,7 @@ let rec variables_usage ?ignore_uses_as_callee ?ignore_uses_as_argument
                  ~all_used_variables defining_expr))
           bindings;
         aux body
-      | Switch (scrutinee, switch, _kind) ->
+      | Switch (scrutinee, switch) ->
         free_variable scrutinee;
         List.iter (fun (_, e) -> aux e) switch.consts;
         List.iter (fun (_, e) -> aux e) switch.blocks;
@@ -793,7 +794,7 @@ let iter_general ~toplevel f f_named maybe_named =
       | For { body; _ } -> aux body
       | If_then_else (_, f1, f2, _) ->
         aux f1; aux f2
-      | Switch (_, sw, _) ->
+      | Switch (_, sw) ->
         List.iter (fun (_,l) -> aux l) sw.consts;
         List.iter (fun (_,l) -> aux l) sw.blocks;
         Option.iter aux sw.failaction
