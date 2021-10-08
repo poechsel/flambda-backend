@@ -258,9 +258,15 @@ let letin_mut v ty e body = Cmm.Clet_mut (v, ty, e, body)
 
 let ite ?(dbg = Debuginfo.none) ?(then_dbg = Debuginfo.none) ~then_
     ?(else_dbg = Debuginfo.none) ~else_ cond =
-  Cmm.Cifthenelse (cond, then_dbg, then_, else_dbg, else_, dbg,
-                   (* CR-someday poechsel: Put a correct value kind here *)
-                  Pgenval)
+  Cmm.Cifthenelse
+    ( cond,
+      then_dbg,
+      then_,
+      else_dbg,
+      else_,
+      dbg,
+      (* CR-someday poechsel: Put a correct value kind here *)
+      Pgenval )
 
 let load ?(dbg = Debuginfo.none) kind mut addr =
   Cmm.Cop (Cmm.Cload (kind, mut), [addr], dbg)

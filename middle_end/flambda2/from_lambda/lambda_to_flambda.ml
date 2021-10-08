@@ -466,7 +466,8 @@ let rec_catch_for_while_loop env cond body =
               ( Lvar cond_result,
                 Lsequence (body, Lstaticraise (cont, [])),
                 Lconst (Const_base (Const_int 0)),
-                Pgenval ) ), Pgenval )
+                Pgenval ) ),
+        Pgenval )
   in
   env, lam
 
@@ -517,7 +518,8 @@ let rec_catch_for_for_loop env ident start stop (dir : Asttypes.direction_flag)
                           ( subsequent_test,
                             Lstaticraise (cont, [next_value_of_counter]),
                             L.lambda_unit,
-                            Pgenval ) ), Pgenval ),
+                            Pgenval ) ),
+                    Pgenval ),
                 L.lambda_unit,
                 Pgenval ) ) )
   in
