@@ -634,14 +634,14 @@ and transl_structure ~scopes loc fields cc rootpath final_env = function
       | Tstr_value(rec_flag, pat_expr_list) ->
           (* Translate bindings first *)
           let mk_lam_let =
-            transl_let ~scopes ~in_structure:true rec_flag pat_expr_list in
+            transl_let ~scopes ~in_structure:true rec_flag pat_expr_list Pgenval in
           let ext_fields =
             List.rev_append (let_bound_idents pat_expr_list) fields in
           (* Then, translate remainder of struct *)
           let body, size =
             transl_structure ~scopes loc ext_fields cc rootpath final_env rem
           in
-          mk_lam_let Pgenval body, size
+          mk_lam_let body, size
       | Tstr_primitive descr ->
           record_primitive descr.val_val;
           transl_structure ~scopes loc fields cc rootpath final_env rem
