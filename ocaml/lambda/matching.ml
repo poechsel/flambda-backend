@@ -2733,7 +2733,7 @@ let combine_constructor value_kind loc arg pat_env cstr partial ctx def
                   (fun (path, act) rem ->
                     let ext = transl_extension_path loc pat_env path in
                     Lifthenelse
-                      (Lprim (Pintcomp Ceq, [ Lvar tag; ext ], loc), act, rem, Pgenval))
+                      (Lprim (Pintcomp Ceq, [ Lvar tag; ext ], loc), act, rem, value_kind))
                   nonconsts default
               in
               Llet (Alias, Pgenval, tag,
@@ -2974,7 +2974,10 @@ let compile_orhandlers value_kind compile_fun lambda1 total1 ctx to_catch =
         let ctx = Context.select_columns mat ctx in
         match compile_fun ctx pm with
         | exception Unused ->
-          do_rec (Lstaticcatch (r, (i, vars), lambda_unit, Pintval)) total_r rem
+          (* Whilst the handler is [lambda_unit] it is actually unused and only added
+             to produce well-formed code. In reality this expression returns a
+             [value_kind]. *)
+          do_rec (Lstaticcatch (r, (i, vars), lambda_unit, value_kind)) total_r rem
         | handler_i, total_i ->
           begin match raw_action r with
           | Lstaticraise (j, args) ->
@@ -3085,8 +3088,11 @@ let rec comp_match_handlers value_kind comp_fun partial ctx first_match next_mat
                   (Jumps.union total_i total_rem)
                   rem
               | exception Unused ->
-                c_rec
-                  (Lstaticcatch (body, (i, []), lambda_unit, Pintval))
+                  (* Whilst the handler is [lambda_unit] it is actually unused and only added
+                     to produce well-formed code. In reality this expression returns a
+                     [value_kind]. *)
+                  c_rec
+                  (Lstaticcatch (body, (i, []), lambda_unit, value_kind))
                   total_rem rem
             end
           )
@@ -3402,12 +3408,12 @@ let failure_handler ~scopes loc ~failer () =
         ],
         sloc )
 
-let check_total ~scopes loc ~failer total lambda i =
+let check_total ~scopes value_kind loc ~failer total lambda i =
   if Jumps.is_empty total then
     lambda
   else
     Lstaticcatch (lambda, (i, []),
-                  failure_handler ~scopes loc ~failer (), Pgenval)
+                  failure_handler ~scopes loc ~failer (), value_kind)
 
 let compile_matching ~scopes value_kind loc ~failer repr arg pat_act_list partial =
   let partial = check_partial pat_act_list partial in
@@ -3425,7 +3431,7 @@ let compile_matching ~scopes value_kind loc ~failer repr arg pat_act_list partia
         let lambda, total =
           compile_match ~scopes value_kind repr partial (Context.start 1) pm
         in
-        check_total ~scopes loc ~failer total lambda raise_num
+        check_total ~scopes value_kind loc ~failer total lambda raise_num
       with Unused -> assert false
       (* ; handler_fun() *)
     )
@@ -3637,7 +3643,7 @@ let for_tupled_function ~scopes loc kind paraml pats_act_list partial =
       compile_match ~scopes kind None partial
         (Context.start (List.length paraml)) pm
     in
-    check_total ~scopes loc ~failer:Raise_match_failure
+    check_total ~scopes kind loc ~failer:Raise_match_failure
       total lambda raise_num
   with Unused ->
     failure_handler ~scopes loc ~failer:Raise_match_failure ()
@@ -3751,7 +3757,7 @@ let do_for_multiple_match ~scopes value_kind loc paraml pat_act_list partial =
           compile_match ~scopes value_kind None partial (Context.start 1) pm1 in
         begin match partial with
         | Partial ->
-            check_total ~scopes loc ~failer:Raise_match_failure
+            check_total ~scopes value_kind loc ~failer:Raise_match_failure
               total lambda raise_num
         | Total ->
             assert (Jumps.is_empty total);
@@ -3772,7 +3778,7 @@ let do_for_multiple_match ~scopes value_kind loc paraml pat_act_list partial =
         List.fold_right2 (bind Strict) idl paraml
           ( match partial with
           | Partial ->
-              check_total ~scopes loc ~failer:Raise_match_failure
+              check_total ~scopes value_kind loc ~failer:Raise_match_failure
                 total lam raise_num
           | Total ->
               assert (Jumps.is_empty total);

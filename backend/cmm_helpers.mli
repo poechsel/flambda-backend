@@ -154,7 +154,7 @@ val safe_mod_bi :
     then branch [ifso], and [ifnot_dbg] to the else branch [ifnot] *)
 val mk_if_then_else :
   Debuginfo.t ->
-  Lambda.value_kind ->
+  Cmm.value_kind ->
   expression ->
   Debuginfo.t -> expression ->
   Debuginfo.t -> expression ->
@@ -563,20 +563,20 @@ val transl_isout : expression -> expression -> Debuginfo.t -> expression
     or optimize as a static table lookup when possible. *)
 val make_switch :
   expression -> int array -> (expression * Debuginfo.t) array -> Debuginfo.t ->
-  Lambda.value_kind -> expression
+  Cmm.value_kind -> expression
 
 (** [transl_int_switch loc kind arg low high cases default] *)
 val transl_int_switch :
-  Debuginfo.t -> Lambda.value_kind -> expression -> int -> int ->
+  Debuginfo.t -> Cmm.value_kind -> expression -> int -> int ->
   (int * expression) list -> expression -> expression
 
 (** [transl_switch_clambda loc kind arg index cases] *)
 val transl_switch_clambda :
-  Debuginfo.t -> Lambda.value_kind -> expression -> int array -> expression array -> expression
+  Debuginfo.t -> Cmm.value_kind -> expression -> int array -> expression array -> expression
 
 (** [strmatch_compile dbg arg default cases] *)
 val strmatch_compile :
-  Debuginfo.t -> Lambda.value_kind -> expression -> expression option ->
+  Debuginfo.t -> Cmm.value_kind -> expression -> expression option ->
   (string * expression) list -> expression
 
 (** Closures and function applications *)

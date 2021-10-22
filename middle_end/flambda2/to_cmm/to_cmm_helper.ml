@@ -266,7 +266,7 @@ let ite ?(dbg = Debuginfo.none) ?(then_dbg = Debuginfo.none) ~then_
       else_,
       dbg,
       (* CR-someday poechsel: Put a correct value kind here *)
-      Pgenval )
+      VVal Pgenval )
 
 let load ?(dbg = Debuginfo.none) kind mut addr =
   Cmm.Cop (Cmm.Cload (kind, mut), [addr], dbg)
@@ -536,7 +536,7 @@ let bigarray_store ?(dbg = Debuginfo.none) _dims kind _layout ba offset v =
 
 let trywith ?(dbg = Debuginfo.none) ~kind ~body ~exn_var ~handler () =
   (* CR-someday poechsel: Put a correct value kind here *)
-  Cmm.Ctrywith (body, kind, exn_var, handler, dbg, Pgenval)
+  Cmm.Ctrywith (body, kind, exn_var, handler, dbg, VVal Pgenval)
 
 let raise_kind (kind : Trap_action.raise_kind option) : Lambda.raise_kind =
   match kind with
@@ -563,7 +563,7 @@ let trap_return arg trap_actions =
 
 let ccatch ~rec_flag ~handlers ~body =
   let rec_flag = if rec_flag then Cmm.Recursive else Cmm.Nonrecursive in
-  Cmm.Ccatch (rec_flag, handlers, body, Pgenval)
+  Cmm.Ccatch (rec_flag, handlers, body, VVal Pgenval)
 
 (* Function calls *)
 

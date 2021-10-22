@@ -888,7 +888,7 @@ let simplify_local_functions lam =
     in
     List.fold_right
       (fun (st, lf) lam ->
-         Lstaticcatch (lam, (st, lf.params), rewrite lf.body, Pgenval)
+         Lstaticcatch (lam, (st, lf.params), rewrite lf.body, lf.return)
       )
       (LamTbl.find_all static lam0)
       lam

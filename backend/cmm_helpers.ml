@@ -341,7 +341,7 @@ let create_loop body dbg =
   let cont = Lambda.next_raise_count () in
   let call_cont = Cexit (Lbl cont, [], []) in
   let body = Csequence (body, call_cont) in
-  Ccatch (Recursive, [cont, [], body, dbg], call_cont, Pgenval)
+  Ccatch (Recursive, [cont, [], body, dbg], call_cont, VVal Pgenval)
 
 (* Turning integer divisions into multiply-high then shift.
    The [division_parameters] function is used in module Emit for
@@ -491,7 +491,7 @@ let rec div_int c1 c2 is_safe dbg =
                       Cop(Cdivi, [c1; c2], dbg),
                       dbg,
                       raise_symbol dbg "caml_exn_Division_by_zero",
-                      dbg, Pintval)))
+                      dbg, VInt)))
 
 let mod_int c1 c2 is_safe dbg =
   match (c1, c2) with
@@ -532,7 +532,7 @@ let mod_int c1 c2 is_safe dbg =
                       Cop(Cmodi, [c1; c2], dbg),
                       dbg,
                       raise_symbol dbg "caml_exn_Division_by_zero",
-                      dbg, Pintval)))
+                      dbg, VInt)))
 
 (* Division or modulo on boxed integers.  The overflow case min_int / -1
    can occur, in which case we force x / -1 = -x and x mod -1 = 0. (PR#5513). *)
@@ -559,11 +559,11 @@ let safe_divmod_bi mkop kind is_safe mkm1 c1 c2 bi dbg =
       c))
 
 let safe_div_bi is_safe =
-  safe_divmod_bi div_int Pintval is_safe
+  safe_divmod_bi div_int VInt is_safe
     (fun c1 dbg -> Cop(Csubi, [Cconst_int (0, dbg); c1], dbg))
 
 let safe_mod_bi is_safe =
-  safe_divmod_bi mod_int Pintval is_safe (fun _ dbg -> Cconst_int (0, dbg))
+  safe_divmod_bi mod_int VInt is_safe (fun _ dbg -> Cconst_int (0, dbg))
 
 (* Bool *)
 
@@ -1601,7 +1601,7 @@ struct
 
   type act = expression
   type loc = Debuginfo.t
-  type value_kind = Lambda.value_kind
+  type nonrec value_kind = value_kind
 
   (* CR mshinwell: GPR#2294 will fix the Debuginfo here *)
 
@@ -1853,15 +1853,15 @@ let cache_public_method meths tag cache dbg =
                      dbg)], dbg),
            dbg, Cassign(hi, Cop(Csubi, [Cvar mi; cconst_int 2], dbg)),
            dbg, Cassign(li, Cvar mi),
-           dbg, Pintval (* unit *)),
+           dbg, VInt (* unit *)),
         Cifthenelse
           (Cop(Ccmpi Cge, [Cvar li; Cvar hi], dbg),
            dbg, Cexit (Lbl raise_num, [], []),
            dbg, Ctuple [],
-           dbg, Pintval (* unit *)))))
+           dbg, VInt (* unit *)))))
        dbg,
      Ctuple [],
-     dbg, Pintval (* unit *)),
+     dbg, VInt (* unit *)),
   Clet (
     VP.create tagged,
       Cop(Caddi, [lsl_const (Cvar li) log2_size_addr dbg;
@@ -1920,7 +1920,7 @@ let apply_function_body arity =
        dbg ()),
    dbg (),
    app_fun clos 0,
-   dbg (), Pgenval))
+   dbg (), VVal Pgenval))
 
 let send_function arity =
   let dbg = placeholder_dbg in
@@ -1951,7 +1951,7 @@ let send_function arity =
                 cache_public_method (Cvar meths) tag cache (dbg ()),
                 dbg (),
                 cached_pos,
-                dbg (), Pgenval),
+                dbg (), VVal Pgenval),
     Cop(Cload (Word_val, Mutable),
       [Cop(Cadda, [Cop (Cadda, [Cvar real; Cvar meths], dbg ());
        cconst_int(2*size_addr-1)], dbg ())], dbg ()))))
@@ -2237,7 +2237,7 @@ let arraylength kind arg dbg =
                           dbg,
                           Cop(Clsr,
                             [hdr; Cconst_int (numfloat_shift, dbg)], dbg),
-                          dbg, Pintval))
+                          dbg, VInt))
       in
       Cop(Cor, [len; Cconst_int (1, dbg)], dbg)
   | Paddrarray | Pintarray ->
@@ -2475,7 +2475,7 @@ let arrayref_unsafe kind arg1 arg2 dbg =
                       addr_array_ref arr idx dbg,
                       dbg,
                       float_array_ref arr idx dbg,
-                      dbg, Pgenval)))
+                      dbg, VVal Pgenval)))
   | Paddrarray ->
       addr_array_ref arg1 arg2 dbg
   | Pintarray ->
@@ -2498,7 +2498,7 @@ let arrayref_safe kind arg1 arg2 dbg =
                         addr_array_ref arr idx dbg,
                         dbg,
                         float_array_ref arr idx dbg,
-                        dbg, Pgenval))
+                        dbg, VVal Pgenval))
         else
           Cifthenelse(is_addr_array_hdr hdr dbg,
             dbg,
@@ -2509,7 +2509,7 @@ let arrayref_safe kind arg1 arg2 dbg =
             Csequence(
               make_checkbound dbg [float_array_length_shifted hdr dbg; idx],
               float_array_ref arr idx dbg),
-            dbg, Pgenval))))
+            dbg, VVal Pgenval))))
       | Paddrarray ->
           bind "index" arg2 (fun idx ->
           bind "arr" arg1 (fun arr ->
@@ -2578,7 +2578,7 @@ let arrayset_unsafe kind arg1 arg2 arg3 dbg =
                         dbg,
                         float_array_set arr index (unbox_float dbg newval)
                           dbg,
-                        dbg, Pintval (* unit *)))))
+                        dbg, VInt (* unit *)))))
   | Paddrarray ->
       addr_array_set arg1 arg2 arg3 dbg
   | Pintarray ->
@@ -2604,7 +2604,7 @@ let arrayset_safe kind arg1 arg2 arg3 dbg =
                         float_array_set arr idx
                           (unbox_float dbg newval)
                           dbg,
-                        dbg, Pintval (* unit *)))
+                        dbg, VInt (* unit *)))
         else
           Cifthenelse(
             is_addr_array_hdr hdr dbg,
@@ -2617,7 +2617,7 @@ let arrayset_safe kind arg1 arg2 arg3 dbg =
               make_checkbound dbg [float_array_length_shifted hdr dbg; idx],
               float_array_set arr idx
                 (unbox_float dbg newval) dbg),
-            dbg, Pintval (* unit*))))))
+            dbg, VInt (* unit*))))))
   | Paddrarray ->
       bind "newval" arg3 (fun newval ->
       bind "index" arg2 (fun idx ->

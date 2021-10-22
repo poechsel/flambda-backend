@@ -206,9 +206,15 @@ and operation =
   | Cprobe_is_enabled of { name: string }
   | Copaque (* Sys.opaque_identity *)
 
+type value_kind =
+  | VVal of Lambda.value_kind (* Valid OCaml values *)
+  | VInt (* Untagged integers and off-heap pointers *)
+  | VAddr (* Derived pointers *)
+  | VFloat (* Unboxed floating-point numbers *)
+
 (** Every basic block should have a corresponding [Debuginfo.t] for its
     beginning. *)
-and expression =
+type expression =
     Cconst_int of int * Debuginfo.t
   | Cconst_natint of nativeint * Debuginfo.t
   | Cconst_float of float * Debuginfo.t
@@ -225,18 +231,18 @@ and expression =
   | Cop of operation * expression list * Debuginfo.t
   | Csequence of expression * expression
   | Cifthenelse of expression * Debuginfo.t * expression
-      * Debuginfo.t * expression * Debuginfo.t * Lambda.value_kind
+      * Debuginfo.t * expression * Debuginfo.t * value_kind
   | Cswitch of expression * int array * (expression * Debuginfo.t) array
-      * Debuginfo.t * Lambda.value_kind
+      * Debuginfo.t * value_kind
   | Ccatch of
       rec_flag
         * (label * (Backend_var.With_provenance.t * machtype) list
           * expression * Debuginfo.t) list
         * expression
-        * Lambda.value_kind
+        * value_kind
   | Cexit of exit_label * expression list * trap_action list
   | Ctrywith of expression * trywith_kind * Backend_var.With_provenance.t
-      * expression * Debuginfo.t * Lambda.value_kind
+      * expression * Debuginfo.t * value_kind
 
 type codegen_option =
   | Reduce_code_size
@@ -270,7 +276,7 @@ type phrase =
 
 val ccatch :
      label * (Backend_var.With_provenance.t * machtype) list
-       * expression * expression * Debuginfo.t * Lambda.value_kind
+       * expression * expression * Debuginfo.t * value_kind
   -> expression
 
 val reset : unit -> unit
