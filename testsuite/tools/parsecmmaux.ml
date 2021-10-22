@@ -67,4 +67,4 @@ let value_kind () =
      For now we can say that the cmm code read by parsecmm will only contain
      Pgenval and it should make no difference, but this should probably be
      fixed. *)
-  Lambda.Pgenval
+  Cmm.VVal Lambda.Pgenval
