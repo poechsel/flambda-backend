@@ -68,7 +68,7 @@ module Calling_convention = struct
 end
 
 type t0 =
-  | Present of
+  | Inlinable of
       { code : C.t;
         calling_convention : Calling_convention.t
       }
@@ -78,9 +78,9 @@ type t = t0 Code_id.Map.t
 
 let print0 ppf t0 =
   match t0 with
-  | Present { code; calling_convention } ->
+  | Inlinable { code; calling_convention } ->
     Format.fprintf ppf
-      "@[<hov 1>(Present@ (@[<hov 1>(code@ %a)@]@[<hov 1>(calling_convention@ \
+      "@[<hov 1>(Inlinable@ (@[<hov 1>(code@ %a)@]@[<hov 1>(calling_convention@ \
        %a)@]))@]"
       C.print code Calling_convention.print calling_convention
   | Imported { calling_convention } ->
@@ -97,13 +97,13 @@ let add_code code t =
     Code_id.Map.filter_map
       (fun _code_id code ->
         match C.params_and_body code with
-        | Present params_and_body ->
+        | Inlinable params_and_body ->
           let is_tupled = C.is_tupled code in
           let calling_convention =
             Calling_convention.compute ~params_and_body ~is_tupled
           in
-          Some (Present { code; calling_convention })
-        | Deleted ->
+          Some (Inlinable { code; calling_convention })
+        | Cannot_be_called ->
           (* CR lmaurer for vlaviron: Okay to just ignore deleted code? *)
           None)
       code
@@ -114,7 +114,7 @@ let mark_as_imported t =
   let forget_params_and_body t0 =
     match t0 with
     | Imported _ -> t0
-    | Present { code = _; calling_convention } ->
+    | Inlinable { code = _; calling_convention } ->
       Imported { calling_convention }
   in
   Code_id.Map.map forget_params_and_body t
@@ -131,12 +131,12 @@ let merge t1 t2 =
           "Code id %a is imported with different calling conventions(%a and %a)"
           Code_id.print code_id Calling_convention.print cc1
           Calling_convention.print cc2
-    | Present _, Present _ ->
+    | Inlinable _, Inlinable _ ->
       Misc.fatal_errorf "Cannot merge two definitions for code id %a"
         Code_id.print code_id
     | ( Imported { calling_convention = cc_imported },
-        (Present { calling_convention = cc_present; code = _ } as t0) )
-    | ( (Present { calling_convention = cc_present; code = _ } as t0),
+        (Inlinable { calling_convention = cc_present; code = _ } as t0) )
+    | ( (Inlinable { calling_convention = cc_present; code = _ } as t0),
         Imported { calling_convention = cc_imported } ) ->
       if Calling_convention.equal cc_present cc_imported
       then Some t0
@@ -155,7 +155,7 @@ let find_code t code_id =
   match Code_id.Map.find code_id t with
   | exception Not_found ->
     Misc.fatal_errorf "Code ID %a not bound" Code_id.print code_id
-  | Present { code; calling_convention = _ } -> Some code
+  | Inlinable { code; calling_convention = _ } -> Some code
   | Imported _ -> None
 
 let find_code_if_not_imported t code_id =
@@ -171,14 +171,14 @@ let find_code_if_not_imported t code_id =
        end up with missing code IDs during the reachability computation, and
        have to assume that it fits the above case. *)
     None
-  | Present { code; calling_convention = _ } -> Some code
+  | Inlinable { code; calling_convention = _ } -> Some code
   | Imported _ -> None
 
 let find_calling_convention t code_id =
   match Code_id.Map.find code_id t with
   | exception Not_found ->
     Misc.fatal_errorf "Code ID %a not bound" Code_id.print code_id
-  | Present { code = _; calling_convention } -> calling_convention
+  | Inlinable { code = _; calling_convention } -> calling_convention
   | Imported { calling_convention } -> calling_convention
 
 let remove_unreachable t ~reachable_names =
@@ -192,7 +192,7 @@ let all_ids_for_export t =
     (fun code_id code_data all_ids ->
       let all_ids = Ids_for_export.add_code_id all_ids code_id in
       match code_data with
-      | Present { code; calling_convention = _ } ->
+      | Inlinable { code; calling_convention = _ } ->
         Ids_for_export.union all_ids (C.all_ids_for_export code)
       | Imported { calling_convention = _ } -> all_ids)
     t Ids_for_export.empty
@@ -210,9 +210,9 @@ let apply_renaming code_id_map renaming t =
         in
         let code_data =
           match code_data with
-          | Present { calling_convention; code } ->
+          | Inlinable { calling_convention; code } ->
             let code = C.apply_renaming code renaming in
-            Present { calling_convention; code }
+            Inlinable { calling_convention; code }
           | Imported { calling_convention } -> Imported { calling_convention }
         in
         Code_id.Map.add code_id code_data all_code)
@@ -220,5 +220,5 @@ let apply_renaming code_id_map renaming t =
 
 let iter t f =
   Code_id.Map.iter
-    (fun id -> function Present { code; _ } -> f id code | _ -> ())
+    (fun id -> function Inlinable { code; _ } -> f id code | _ -> ())
     t

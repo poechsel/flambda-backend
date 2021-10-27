@@ -1403,7 +1403,7 @@ module Static_const_group = struct
   let pieces_of_code t =
     List.filter_map Static_const_or_code.to_code t
     |> List.filter_map (fun code ->
-           if Code0.is_deleted code
+           if Code0.is_non_callable code
            then None
            else Some (Code0.code_id code, code))
     |> Code_id.Map.of_list

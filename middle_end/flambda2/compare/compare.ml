@@ -363,7 +363,7 @@ and subst_static_const env (static_const : Static_const_or_code.t) :
 and subst_code env (code : Code.t) : Code.t =
   let params_and_body =
     match Code.params_and_body code with
-    | Or_deleted.Present params_and_body ->
+    | Or_deleted.Inlinable params_and_body ->
       let params_and_body = subst_params_and_body env params_and_body in
       let _names_and_closure_vars names =
         Name_occurrences.(
@@ -377,8 +377,8 @@ and subst_code env (code : Code.t) : Code.t =
         (* Flambda.Function_params_and_body.free_names params_and_body |>
            names_and_closure_vars *)
       in
-      Or_deleted.Present (params_and_body, free_names)
-    | Or_deleted.Deleted -> Or_deleted.Deleted
+      Or_deleted.Inlinable (params_and_body, free_names)
+    | Or_deleted.Cannot_be_called -> Or_deleted.Cannot_be_called
   in
   let newer_version_of =
     Option.map (subst_code_id env) (Code.newer_version_of code)
@@ -1167,13 +1167,13 @@ and codes env (code1 : Code.t) (code2 : Code.t) =
 
   let bodies_or_deleted env body1 body2 : _ Or_deleted.t Comparison.t =
     match (body1 : _ Or_deleted.t), (body2 : _ Or_deleted.t) with
-    | Present body1, Present body2 ->
+    | Inlinable body1, Inlinable body2 ->
       bodies env body1 body2
-      |> Comparison.map ~f:(fun body1' -> Or_deleted.Present body1')
-    | Deleted, Deleted -> Equivalent
-    | Present body1, Deleted ->
-      Different { approximant = Present (subst_params_and_body env body1) }
-    | Deleted, Present _ -> Different { approximant = Deleted }
+      |> Comparison.map ~f:(fun body1' -> Or_deleted.Inlinable body1')
+    | Cannot_be_called, Cannot_be_called -> Equivalent
+    | Inlinable body1, Cannot_be_called ->
+      Different { approximant = Inlinable (subst_params_and_body env body1) }
+    | Cannot_be_called, Inlinable _ -> Different { approximant = Cannot_be_called }
   in
   pairs ~f1:bodies_or_deleted
     ~f2:(options ~f:code_ids ~subst:subst_code_id)
@@ -1183,9 +1183,9 @@ and codes env (code1 : Code.t) (code2 : Code.t) =
   |> Comparison.map ~f:(fun (params_and_body, newer_version_of) ->
          let params_and_body : _ Or_deleted.t =
            match (params_and_body : _ Or_deleted.t) with
-           | Deleted -> Deleted
-           | Present params_and_body ->
-             Present
+           | Cannot_be_called -> Cannot_be_called
+           | Inlinable params_and_body ->
+             Inlinable
                ( params_and_body,
                  (* CR mshinwell: This needs fixing XXX *)
                  Name_occurrences.empty

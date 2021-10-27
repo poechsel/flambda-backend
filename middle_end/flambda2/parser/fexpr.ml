@@ -474,8 +474,8 @@ and params_and_body =
   }
 
 and 'a or_deleted =
-  | Present of 'a
-  | Deleted
+  | Inlinable of 'a
+  | Cannot_be_called
 
 and static_closure_binding =
   { symbol : symbol;

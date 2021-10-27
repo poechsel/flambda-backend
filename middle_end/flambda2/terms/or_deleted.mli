@@ -17,7 +17,7 @@
 [@@@ocaml.warning "+a-30-40-41-42"]
 
 type 'a t =
-  | Present of 'a
-  | Deleted
+  | Inlinable of 'a
+  | Cannot_be_called
 
 val print : (Format.formatter -> 'a -> unit) -> Format.formatter -> 'a t -> unit

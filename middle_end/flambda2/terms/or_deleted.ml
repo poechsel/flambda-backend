@@ -17,10 +17,10 @@
 [@@@ocaml.warning "+a-30-40-41-42"]
 
 type 'a t =
-  | Present of 'a
-  | Deleted
+  | Inlinable of 'a
+  | Cannot_be_called
 
 let [@ocamlformat "disable"] print print_contents ppf t =
   match t with
-  | Present contents -> print_contents ppf contents
-  | Deleted -> Format.pp_print_string ppf "Deleted"
+  | Inlinable contents -> print_contents ppf contents
+  | Cannot_be_called -> Format.pp_print_string ppf "Cannot_be_called"

@@ -40,13 +40,13 @@ let params_and_body { params_and_body; _ } = params_and_body
 
 let params_and_body_opt { params_and_body; _ } =
   match params_and_body with
-  | Deleted -> None
-  | Present params_and_body -> Some params_and_body
+  | Cannot_be_called  -> None
+  | Inlinable params_and_body -> Some params_and_body
 
 let params_and_body_must_be_present ~error_context { params_and_body; _ } =
   match params_and_body with
-  | Deleted -> Misc.fatal_errorf "%s: params and body are deleted" error_context
-  | Present params_and_body -> params_and_body
+  | Cannot_be_called -> Misc.fatal_errorf "%s: params and body are deleted" error_context
+  | Inlinable params_and_body -> params_and_body
 
 let newer_version_of { newer_version_of; _ } = newer_version_of
 
@@ -76,8 +76,8 @@ let check_params_and_body ~print_function_params_and_body code_id
     (params_and_body : _ Or_deleted.t) =
   let free_names_of_params_and_body =
     match params_and_body with
-    | Deleted -> Name_occurrences.empty
-    | Present (params_and_body, free_names_of_params_and_body) ->
+    | Cannot_be_called -> Name_occurrences.empty
+    | Inlinable (params_and_body, free_names_of_params_and_body) ->
       if not
            (Name_occurrences.no_continuations free_names_of_params_and_body
            && Name_occurrences.no_variables free_names_of_params_and_body)
@@ -90,8 +90,8 @@ let check_params_and_body ~print_function_params_and_body code_id
   in
   let params_and_body : _ Or_deleted.t =
     match params_and_body with
-    | Deleted -> Deleted
-    | Present (params_and_body, _) -> Present params_and_body
+    | Cannot_be_called -> Cannot_be_called
+    | Inlinable (params_and_body, _) -> Inlinable params_and_body
   in
   params_and_body, free_names_of_params_and_body
 
@@ -159,7 +159,7 @@ let [@ocamlformat "disable"] print ~print_function_params_and_body ppf
         dbg; is_tupled; inlining_decision; } =
   let module C = Flambda_colours in
   match params_and_body with
-  | Present _ ->
+  | Inlinable _  ->
     Format.fprintf ppf "@[<hov 1>(\
         @[<hov 1>@<0>%s(newer_version_of@ %a)@<0>%s@]@ \
         @[<hov 1>@<0>%s(stub@ %b)@<0>%s@]@ \
@@ -225,10 +225,10 @@ let [@ocamlformat "disable"] print ~print_function_params_and_body ppf
       (Flambda_colours.normal ())
       Function_decl_inlining_decision_type.print inlining_decision
       (Or_deleted.print print_function_params_and_body) params_and_body
-  | Deleted ->
+  | Cannot_be_called ->
     Format.fprintf ppf "@[<hov 1>(\
         @[<hov 1>@<0>%s(newer_version_of@ %a)@<0>%s@]@ \
-        Deleted\
+        Cannot_be_called\
         )@]"
       (if Option.is_none newer_version_of then Flambda_colours.elide ()
       else Flambda_colours.normal ())
@@ -278,14 +278,14 @@ let apply_renaming ~apply_renaming_function_params_and_body
   let code_id' = Renaming.apply_code_id perm code_id in
   let params_and_body' : _ Or_deleted.t =
     match params_and_body with
-    | Deleted -> Deleted
-    | Present params_and_body_inner ->
+    | Cannot_be_called -> Cannot_be_called
+    | Inlinable params_and_body_inner ->
       let params_and_body_inner' =
         apply_renaming_function_params_and_body params_and_body_inner perm
       in
       if params_and_body_inner == params_and_body_inner'
       then params_and_body
-      else Present params_and_body_inner'
+      else Inlinable params_and_body_inner'
   in
   if params_and_body == params_and_body'
      && code_id == code_id'
@@ -326,19 +326,19 @@ let all_ids_for_export ~all_ids_for_export_function_params_and_body
   in
   let params_and_body_ids =
     match params_and_body with
-    | Deleted -> Ids_for_export.empty
-    | Present params_and_body ->
+    | Cannot_be_called-> Ids_for_export.empty
+    | Inlinable params_and_body ->
       all_ids_for_export_function_params_and_body params_and_body
   in
   Ids_for_export.add_code_id
     (Ids_for_export.union newer_version_of_ids params_and_body_ids)
     code_id
 
-let make_deleted t =
+let make_not_callable t =
   { t with
-    params_and_body = Deleted;
+    params_and_body = Cannot_be_called;
     free_names_of_params_and_body = Name_occurrences.empty
   }
 
-let is_deleted t =
-  match t.params_and_body with Deleted -> true | Present _ -> false
+let is_non_callable t =
+  match t.params_and_body with Cannot_be_called -> true |  Inlinable _ -> false

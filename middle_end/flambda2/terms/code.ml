@@ -65,9 +65,9 @@ let with_params_and_body =
 
 let with_newer_version_of = Code0.with_newer_version_of
 
-let make_deleted = Code0.make_deleted
+let make_not_callable = Code0.make_not_callable
 
-let is_deleted = Code0.is_deleted
+let is_non_callable = Code0.is_non_callable
 
 let free_names = Code0.free_names
 

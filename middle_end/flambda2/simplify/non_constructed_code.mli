@@ -23,7 +23,7 @@ type t = unit Code0.t
 
 val code_id : t -> Code_id.t
 
-val is_deleted : t -> bool
+val is_non_callable : t -> bool
 
 val newer_version_of : t -> Code_id.t option
 
@@ -70,4 +70,4 @@ include Contains_names.S with type t := t
 
 val print : Format.formatter -> t -> unit
 
-val make_deleted : t -> t
+val make_not_callable : t -> t

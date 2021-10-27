@@ -729,10 +729,10 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
           | Some ar -> arity ar
           | None -> (
             match params_and_body with
-            | Deleted ->
+            | Cannot_be_called ->
               Misc.fatal_errorf "Param arity required for deleted code %a"
                 Code_id.print code_id
-            | Present { params; _ } ->
+            | Inlinable { params; _ } ->
               List.map
                 (fun ({ kind; _ } : Fexpr.kinded_parameter) ->
                   value_kind_with_subkind_opt kind)
@@ -745,8 +745,8 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
         in
         let params_and_body : _ Or_deleted.t =
           match params_and_body with
-          | Deleted -> Deleted
-          | Present { params; closure_var; depth_var; ret_cont; exn_cont; body }
+          | Cannot_be_called -> Cannot_be_called
+          | Inlinable { params; closure_var; depth_var; ret_cont; exn_cont; body }
             ->
             let params, env =
               map_accum_left
@@ -791,7 +791,7 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
               (* Flambda.Function_params_and_body.free_names params_and_body |>
                  names_and_closure_vars *)
             in
-            Present (params_and_body, free_names)
+            Inlinable (params_and_body, free_names)
         in
         let recursive = convert_recursive_flag recursive in
         let inline =

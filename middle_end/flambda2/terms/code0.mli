@@ -89,9 +89,9 @@ val with_params_and_body :
 val with_newer_version_of :
   Code_id.t option -> 'function_params_and_body t -> 'function_params_and_body t
 
-val make_deleted : 'function_params_and_body t -> 'function_params_and_body t
+val make_not_callable : 'function_params_and_body t -> 'function_params_and_body t
 
-val is_deleted : 'function_params_and_body t -> bool
+val is_non_callable : 'function_params_and_body t -> bool
 
 val free_names : _ t -> Name_occurrences.t
 

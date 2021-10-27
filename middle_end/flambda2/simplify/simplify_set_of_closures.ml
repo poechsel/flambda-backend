@@ -583,7 +583,7 @@ let simplify_function context ~used_closure_vars ~shareable_constants closure_id
     Rebuilt_static_const.create_code
       (DA.are_rebuilding_terms dacc_after_body)
       new_code_id
-      ~params_and_body:(Present (params_and_body, free_names_of_code))
+      ~params_and_body:(Inlinable (params_and_body, free_names_of_code))
       ~newer_version_of:(Some old_code_id)
       ~params_arity:(Code.params_arity code)
       ~result_arity:(Code.result_arity code) ~stub:(Code.stub code)
