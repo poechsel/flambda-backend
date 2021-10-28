@@ -201,10 +201,10 @@ and operation =
   | Copaque
 
 type value_kind =
-  | VVal of Lambda.value_kind (* Valid OCaml values *)
-  | VInt (* Untagged integers and off-heap pointers *)
-  | VAddr (* Derived pointers *)
-  | VFloat (* Unboxed floating-point numbers *)
+  | Vval of Lambda.value_kind (* Valid OCaml values *)
+  | Vint (* Untagged integers and off-heap pointers *)
+  | Vaddr (* Derived pointers *)
+  | Vfloat (* Unboxed floating-point numbers *)
 
 type expression =
     Cconst_int of int * Debuginfo.t

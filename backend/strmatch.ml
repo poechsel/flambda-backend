@@ -380,7 +380,7 @@ module Make(I:I) = struct
     | Cexit (_e,[],_traps) ->  k arg
     | _ ->
         let e = next_raise_count () in
-        ccatch (e,[],k (Cexit (Lbl e,[],[])),arg,dbg, VVal Pgenval)
+        ccatch (e,[],k (Cexit (Lbl e,[],[])),arg,dbg, Vval Pgenval)
 
     let compile dbg value_kind str default cases =
 (* We do not attempt to really optimise default=None *)

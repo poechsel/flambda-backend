@@ -382,24 +382,24 @@ let rec is_unboxed_number_cmm = function
     | Cassign _
     | Ctuple _
     | Cop _ -> No_unboxing
-    | Cifthenelse (_, _, _, _, _, _, VVal (Pintval | Pblock _))
-    | Cswitch (_, _,  _, _, VVal (Pintval | Pblock _))
-    | Ctrywith (_, _, _, _, _, VVal (Pintval | Pblock _))
-    | Ccatch (_, _, _, VVal (Pintval | Pblock _)) ->
+    | Cifthenelse (_, _, _, _, _, _, Vval (Pintval | Pblock _))
+    | Cswitch (_, _,  _, _, Vval (Pintval | Pblock _))
+    | Ctrywith (_, _, _, _, _, Vval (Pintval | Pblock _))
+    | Ccatch (_, _, _, Vval (Pintval | Pblock _)) ->
       No_unboxing
-    | Cifthenelse (_, _, a, _, b, _, VVal kind) ->
+    | Cifthenelse (_, _, a, _, b, _, Vval kind) ->
       join_unboxed_number_kind ~strict:(is_strict kind)
         (is_unboxed_number_cmm a)
         (is_unboxed_number_cmm b)
-    | Cswitch (_, _,  cases, _, VVal kind) ->
+    | Cswitch (_, _,  cases, _, Vval kind) ->
       let cases = Array.map (fun (x, _) -> is_unboxed_number_cmm x) cases in
       let strict = is_strict kind in
       Array.fold_left (join_unboxed_number_kind ~strict) No_result cases
-    | Ctrywith (a, _, _, b, _, VVal kind) ->
+    | Ctrywith (a, _, _, b, _, Vval kind) ->
       join_unboxed_number_kind ~strict:(is_strict kind)
         (is_unboxed_number_cmm a)
         (is_unboxed_number_cmm b)
-    | Ccatch (_, handlers, body, VVal kind) ->
+    | Ccatch (_, handlers, body, Vval kind) ->
       let strict = is_strict kind in
       List.fold_left
         (join_unboxed_number_kind ~strict)
@@ -634,27 +634,27 @@ let rec transl env e =
           (untag_int (transl env arg) dbg)
           s.us_index_consts
           (Array.map (fun expr -> transl env expr, dbg) s.us_actions_consts)
-          dbg (VVal kind)
+          dbg (Vval kind)
       else if Array.length s.us_index_consts = 0 then
         bind "switch" (transl env arg) (fun arg ->
-          transl_switch dbg (VVal kind) env (get_tag arg dbg)
+          transl_switch dbg (Vval kind) env (get_tag arg dbg)
             s.us_index_blocks s.us_actions_blocks)
       else
         bind "switch" (transl env arg) (fun arg ->
           Cifthenelse(
           Cop(Cand, [arg; Cconst_int (1, dbg)], dbg),
           dbg,
-          transl_switch dbg (VVal kind) env
+          transl_switch dbg (Vval kind) env
             (untag_int arg dbg) s.us_index_consts s.us_actions_consts,
           dbg,
-          transl_switch dbg (VVal kind) env
+          transl_switch dbg (Vval kind) env
             (get_tag arg dbg) s.us_index_blocks s.us_actions_blocks,
-          dbg, VVal kind))
+          dbg, Vval kind))
   | Ustringswitch(arg,sw,d, kind) ->
       let dbg = Debuginfo.none in
       bind "switch" (transl env arg)
         (fun arg ->
-          strmatch_compile dbg (VVal kind) arg (Option.map (transl env) d)
+          strmatch_compile dbg (Vval kind) arg (Option.map (transl env) d)
             (List.map (fun (s,act) -> s,transl env act) sw))
   | Ustaticfail (nfail, args) ->
       let cargs = List.map (transl env) args in
@@ -664,21 +664,21 @@ let rec transl env e =
   | Ucatch(nfail, [], body, handler, kind) ->
       let dbg = Debuginfo.none in
       let env_body = enter_catch_body env nfail in
-      make_catch (VVal kind) nfail
+      make_catch (Vval kind) nfail
         (transl env_body body)
         (transl env handler) dbg
   | Ucatch(nfail, ids, body, handler, kind) ->
       let dbg = Debuginfo.none in
-      transl_catch (VVal kind) env nfail ids body handler dbg
+      transl_catch (Vval kind) env nfail ids body handler dbg
   | Utrywith(body, exn, handler, kind) ->
       let dbg = Debuginfo.none in
       let new_body = transl (incr_depth env) body in
-      Ctrywith(new_body, Regular, exn, transl env handler, dbg, VVal kind)
+      Ctrywith(new_body, Regular, exn, transl env handler, dbg, Vval kind)
   | Uifthenelse(cond, ifso, ifnot, kind) ->
       let ifso_dbg = Debuginfo.none in
       let ifnot_dbg = Debuginfo.none in
       let dbg = Debuginfo.none in
-      transl_if env (VVal kind) Unknown dbg cond
+      transl_if env (Vval kind) Unknown dbg cond
         ifso_dbg (transl env ifso) ifnot_dbg (transl env ifnot)
   | Usequence(exp1, exp2) ->
       Csequence(remove_unit(transl env exp1), transl env exp2)
@@ -688,13 +688,13 @@ let rec transl env e =
       return_unit dbg
         (ccatch
            (raise_num, [],
-            create_loop(transl_if env (VVal Pgenval) Unknown dbg cond
+            create_loop(transl_if env (Vval Pgenval) Unknown dbg cond
                     dbg (remove_unit(transl env body))
                     dbg (Cexit (Lbl raise_num,[],[]))
                     )
               dbg,
             Ctuple [],
-            dbg, VVal Pgenval))
+            dbg, Vval Pgenval))
   | Ufor(id, low, high, dir, body) ->
       let dbg = Debuginfo.none in
       let tst = match dir with Upto -> Cgt   | Downto -> Clt in
@@ -725,11 +725,11 @@ let rec transl env e =
                                   dbg),
                                 dbg, Cexit (Lbl raise_num,[],[]),
                                 dbg, Ctuple [],
-                                dbg, VInt (* unit *))))))
+                                dbg, Vint (* unit *))))))
                       dbg,
-                   dbg, VInt (* unit*)),
+                   dbg, Vint (* unit*)),
                  Ctuple [],
-                 dbg, VInt (* unit *)))))
+                 dbg, Vint (* unit *)))))
   | Uassign(id, exp) ->
       let dbg = Debuginfo.none in
       let cexp = transl env exp in
@@ -891,7 +891,7 @@ and transl_prim_1 env p arg dbg =
       arraylength kind (transl env arg) dbg
   (* Boolean operations *)
   | Pnot ->
-      transl_if env VInt Then_false_else_true
+      transl_if env Vint Then_false_else_true
         dbg arg
         dbg (Cconst_int (1, dbg))
         dbg (Cconst_int (3, dbg))
@@ -950,7 +950,7 @@ and transl_prim_2 env p arg1 arg2 dbg =
   (* Boolean operations *)
   | Psequand ->
       let dbg' = Debuginfo.none in
-      transl_sequand env VInt Then_true_else_false
+      transl_sequand env Vint Then_true_else_false
         dbg arg1
         dbg' arg2
         dbg (Cconst_int (3, dbg))
@@ -960,7 +960,7 @@ and transl_prim_2 env p arg1 arg2 dbg =
            Cifthenelse(test_bool dbg (Cvar id), transl env arg2, Cvar id)) *)
   | Psequor ->
       let dbg' = Debuginfo.none in
-      transl_sequor env VInt Then_true_else_false
+      transl_sequor env Vint Then_true_else_false
         dbg arg1
         dbg' arg2
         dbg (Cconst_int (3, dbg))
