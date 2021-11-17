@@ -543,7 +543,6 @@ let is_different_from x = function
   | _ -> false
 
 let safe_divmod_bi mkop kind is_safe mkm1 c1 c2 bi dbg =
-  bind "dividend" c1 (fun c1 ->
   bind "divisor" c2 (fun c2 ->
   bind "dividend" c1 (fun c1 ->
     let c = mkop c1 c2 is_safe dbg in
