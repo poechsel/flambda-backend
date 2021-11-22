@@ -281,7 +281,7 @@ val ccatch :
 
 val reset : unit -> unit
 
-val map_tail: (expression -> expression) -> expression -> expression
+val map_tail: ?kind:value_kind -> (expression -> expression) -> expression -> expression
   (** Apply the transformation to an expression, trying to push it
       to all inner sub-expressions that can produce the final result.
       Note that the notion of "tail" sub-expression used here does not

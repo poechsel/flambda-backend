@@ -373,7 +373,7 @@ let concat_arrays ~loc arr kind shape global_count_var =
              (gen_binding counter_binding
                 ((Lsequence
                     (loop shape array_var (Some len_var),
-                     Lvar res_var)))), Pintval)
+                     Lvar res_var)))), Pgenval)
 
 let transl_arr_comprehension ~transl_exp ~loc ~scopes
       ~array_kind exp blocks =

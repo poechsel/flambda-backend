@@ -270,31 +270,45 @@ let ccatch (i, ids, e1, e2, dbg, kind) =
 let reset () =
   label_counter := init_label
 
-let rec map_tail f = function
+let rec map_tail ?kind f = function
   | Clet(id, exp, body) ->
-      Clet(id, exp, map_tail f body)
-  | Clet_mut(id, kind, exp, body) ->
-      Clet_mut(id, kind, exp, map_tail f body)
+      Clet(id, exp, map_tail ?kind f body)
+  | Clet_mut(id, kind_before, exp, body) ->
+    Clet_mut(id,
+             kind_before,
+             exp,
+             map_tail ?kind f body)
   | Cphantom_let(id, exp, body) ->
-      Cphantom_let (id, exp, map_tail f body)
-  | Cifthenelse(cond, ifso_dbg, ifso, ifnot_dbg, ifnot, dbg, kind) ->
+      Cphantom_let (id, exp, map_tail ?kind f body)
+  | Cifthenelse(cond, ifso_dbg, ifso, ifnot_dbg, ifnot, dbg, kind_before) ->
       Cifthenelse
         (
           cond,
-          ifso_dbg, map_tail f ifso,
-          ifnot_dbg, map_tail f ifnot,
+          ifso_dbg, map_tail ?kind f ifso,
+          ifnot_dbg, map_tail ?kind f ifnot,
           dbg,
-          kind
+          Option.value kind ~default:kind_before
         )
   | Csequence(e1, e2) ->
-      Csequence(e1, map_tail f e2)
-  | Cswitch(e, tbl, el, dbg', kind) ->
-      Cswitch(e, tbl, Array.map (fun (e, dbg) -> map_tail f e, dbg) el, dbg', kind)
-  | Ccatch(rec_flag, handlers, body, kind) ->
-      let map_h (n, ids, handler, dbg) = (n, ids, map_tail f handler, dbg) in
-      Ccatch(rec_flag, List.map map_h handlers, map_tail f body, kind)
-  | Ctrywith(e1, kind, id, e2, dbg, value_kind) ->
-      Ctrywith(map_tail f e1, kind, id, map_tail f e2, dbg, value_kind)
+      Csequence(e1, map_tail ?kind f e2)
+  | Cswitch(e, tbl, el, dbg', kind_before) ->
+    Cswitch(e,
+            tbl,
+            Array.map (fun (e, dbg) -> map_tail ?kind f e, dbg) el,
+            dbg',
+            Option.value kind ~default:kind_before)
+  | Ccatch(rec_flag, handlers, body, kind_before) ->
+      let map_h (n, ids, handler, dbg) = (n, ids, map_tail ?kind f handler, dbg) in
+      Ccatch(rec_flag,
+             List.map map_h handlers,
+             map_tail ?kind f body,
+             Option.value kind ~default:kind_before)
+  | Ctrywith(e1, k, id, e2, dbg, kind_before) ->
+    Ctrywith(map_tail ?kind f e1, k,
+             id,
+             map_tail f e2,
+             dbg,
+             Option.value kind ~default:kind_before)
   | Cexit _ | Cop (Craise _, _, _) as cmm ->
       cmm
   | Cconst_int _

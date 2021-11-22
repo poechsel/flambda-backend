@@ -583,6 +583,7 @@ let box_float dbg c = Cop(Calloc, [alloc_float_header dbg; c], dbg)
 
 let unbox_float dbg =
   map_tail
+    ~kind:Vfloat
     (function
       | Cop(Calloc, [Cconst_natint (hdr, _); c], _)
         when Nativeint.equal hdr float_header ->
@@ -1140,6 +1141,7 @@ let unbox_int dbg bi =
         [Cop(Cadda, [arg; Cconst_int (size_addr, dbg)], dbg)], dbg)
   in
   map_tail
+    ~kind:Vint
     (function
       | Cop(Calloc,
             [hdr; ops;
