@@ -23,6 +23,7 @@ type t = {
   name_stamp : int;
   (** [name_stamp]s are unique within any given compilation unit. *)
   debug_info : Debuginfo.t option;
+  (** [debug_info] should be set for variables repreesnting functions *)
 }
 
 include Identifiable.Make (struct

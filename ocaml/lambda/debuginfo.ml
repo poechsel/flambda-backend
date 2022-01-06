@@ -211,6 +211,15 @@ let to_location = function
 let inline dbg1 dbg2 =
   dbg1 @ dbg2
 
+let map_scopes f t =
+  match t with
+  | [] ->
+    (* Misc.fatal_error "Debug info expected" *)
+    []
+  | item :: items ->
+    let item = { item with dinfo_scopes = f ~scopes:item.dinfo_scopes } in
+    item :: items
+
 (* CR-someday afrisch: FWIW, the current compare function does not seem very
    good, since it reverses the two lists. I don't know how long the lists are,
    nor if the specific currently implemented ordering is useful in other

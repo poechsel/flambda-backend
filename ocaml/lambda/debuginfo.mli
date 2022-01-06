@@ -75,6 +75,12 @@ val to_location : t -> Location.t
 
 val inline : t -> t -> t
 
+(** Update the scopes on the most recently inlined debug entry *)
+val map_scopes
+  : (scopes:Scoped_location.scopes -> Scoped_location.scopes)
+  -> t
+  -> t
+
 val compare : t -> t -> int
 
 val hash : t -> int

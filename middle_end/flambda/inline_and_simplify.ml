@@ -844,7 +844,13 @@ and simplify_partial_application env r ~lhs_of_application
       }
     in
     let closure_variable =
-      Variable.rename ~debug_info:(Closure_id.debug_info closure_id_being_applied)
+      (* Set the debug location inside an anonymous function at the call site *)
+      let debug_info =
+        Debuginfo.map_scopes
+          Debuginfo.Scoped_location.enter_anonymous_function
+          (Closure_id.debug_info closure_id_being_applied)
+      in
+      Variable.rename ~debug_info
         (Closure_id.unwrap closure_id_being_applied)
     in
     Flambda_utils.make_closure_declaration ~id:closure_variable
