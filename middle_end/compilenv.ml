@@ -119,6 +119,9 @@ let make_symbol ?(unitname = current_unit.ui_symbol) idopt =
   | None -> prefix
   | Some id -> concat_symbol prefix id
 
+let make_fun_symbol ?(unitname = current_unit.ui_symbol) loc id =
+  Mangling.fun_symbol ~unitname ~loc ~id
+
 let current_unit_linkage_name () =
   Linkage_name.create (make_symbol ~unitname:current_unit.ui_symbol None)
 
@@ -436,23 +439,31 @@ let structured_constants () =
          provenance = Some provenance;
        })
 
-let closure_symbol fv =
-  let compilation_unit = Closure_id.get_compilation_unit fv in
+let function_label closure_id =
   let unitname =
-    Linkage_name.to_string (Compilation_unit.get_linkage_name compilation_unit)
+    Closure_id.get_compilation_unit closure_id
+    |> Compilation_unit.get_linkage_name
+    |> Linkage_name.to_string
   in
-  let linkage_name =
-    concat_symbol unitname ((Closure_id.unique_name fv) ^ "_closure")
-  in
-  Symbol.of_global_linkage compilation_unit (Linkage_name.create linkage_name)
+  let name = Closure_id.unique_name closure_id in
+  match Closure_id.debug_info closure_id with
+  | None | Some [] ->
+    (* concat_symbol unitname name *)
+    let scoped_loc = Debuginfo.Scoped_location.Loc_unknown in
+    make_fun_symbol ~unitname scoped_loc name
+  | Some ((item :: _items) as debug_info) ->
+    let scoped_loc =
+      Debuginfo.Scoped_location.Loc_known
+        { loc = Debuginfo.to_location debug_info
+        ; scopes = item.dinfo_scopes
+        }
+    in
+    make_fun_symbol ~unitname scoped_loc name
 
-let function_label fv =
-  let compilation_unit = Closure_id.get_compilation_unit fv in
-  let unitname =
-    Linkage_name.to_string
-      (Compilation_unit.get_linkage_name compilation_unit)
-  in
-  (concat_symbol unitname (Closure_id.unique_name fv))
+let closure_symbol closure_id =
+  let compilation_unit = Closure_id.get_compilation_unit closure_id in
+  let linkage_name = (function_label closure_id) ^ "_closure" in
+  Symbol.of_global_linkage compilation_unit (Linkage_name.create linkage_name)
 
 let require_global global_ident =
   if not (Ident.is_predef global_ident) then
