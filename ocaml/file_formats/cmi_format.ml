@@ -56,48 +56,53 @@ let input_cmi ic =
     }
 
 let read_cmi filename =
-  let ic = open_in_bin filename in
-  try
-    let buffer =
-      really_input_string ic (String.length Config.cmi_magic_number)
-    in
-    if buffer <> Config.cmi_magic_number then begin
-      close_in ic;
-      let pre_len = String.length Config.cmi_magic_number - 3 in
-      if String.sub buffer 0 pre_len
-          = String.sub Config.cmi_magic_number 0 pre_len then
-      begin
-        let msg =
-          if buffer < Config.cmi_magic_number then "an older" else "a newer" in
-        raise (Error (Wrong_version_interface (filename, msg)))
-      end else begin
-        raise(Error(Not_an_interface filename))
-      end
-    end;
-    let cmi = input_cmi ic in
-    close_in ic;
-    cmi
-  with End_of_file | Failure _ ->
-      close_in ic;
-      raise(Error(Corrupted_interface(filename)))
-    | Error e ->
-      close_in ic;
-      raise (Error e)
+  Profile.record_call "load" (fun () ->
+    Profile.record_call "cmi" (fun () ->
+      let ic = open_in_bin filename in
+      try
+        let buffer =
+          really_input_string ic (String.length Config.cmi_magic_number)
+        in
+        if buffer <> Config.cmi_magic_number then begin
+          close_in ic;
+          let pre_len = String.length Config.cmi_magic_number - 3 in
+          if String.sub buffer 0 pre_len
+              = String.sub Config.cmi_magic_number 0 pre_len then
+          begin
+            let msg =
+              if buffer < Config.cmi_magic_number then "an older" else "a newer" in
+            raise (Error (Wrong_version_interface (filename, msg)))
+          end else begin
+            raise(Error(Not_an_interface filename))
+          end
+        end;
+        let cmi = input_cmi ic in
+        close_in ic;
+        cmi
+      with End_of_file | Failure _ ->
+          close_in ic;
+          raise(Error(Corrupted_interface(filename)))
+        | Error e ->
+          close_in ic;
+          raise (Error e)
+  ))
 
 let output_cmi filename oc cmi =
-(* beware: the provided signature must have been substituted for saving *)
-  output_string oc Config.cmi_magic_number;
-  output_value oc ((cmi.cmi_name, cmi.cmi_sign) : header);
-  flush oc;
-  let crc = Digest.file filename in
-  let crcs =
-    Array.append [| Import_info.create_normal cmi.cmi_name ~crc:(Some crc) |]
-      cmi.cmi_crcs
-  in
-  output_value oc (crcs : crcs);
-  output_value oc (cmi.cmi_flags : flags);
-  crc
-
+  Profile.record_call "store" (fun () ->
+    Profile.record_call "cmi" (fun () ->
+    (* beware: the provided signature must have been substituted for saving *)
+      output_string oc Config.cmi_magic_number;
+      output_value oc ((cmi.cmi_name, cmi.cmi_sign) : header);
+      flush oc;
+      let crc = Digest.file filename in
+      let crcs =
+        Array.append [| Import_info.create_normal cmi.cmi_name ~crc:(Some crc) |]
+          cmi.cmi_crcs
+      in
+      output_value oc (crcs : crcs);
+      output_value oc (cmi.cmi_flags : flags);
+      crc
+    ))
 (* Error report *)
 
 open Format

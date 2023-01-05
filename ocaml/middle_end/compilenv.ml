@@ -111,29 +111,37 @@ let current_unit_infos () =
   current_unit
 
 let read_unit_info filename =
-  let ic = open_in_bin filename in
-  try
-    let buffer = really_input_string ic (String.length cmx_magic_number) in
-    if buffer <> cmx_magic_number then begin
-      close_in ic;
-      raise(Error(Not_a_unit_info filename))
-    end;
-    let ui = (input_value ic : unit_infos) in
-    let crc = Digest.input ic in
-    close_in ic;
-    (ui, crc)
-  with End_of_file | Failure _ ->
-    close_in ic;
-    raise(Error(Corrupted_unit_info(filename)))
+  Profile.record_call "load" (fun () ->
+    Profile.record_call "cmx" (fun () ->
+      let ic = open_in_bin filename in
+      try
+        let buffer = really_input_string ic (String.length cmx_magic_number) in
+        if buffer <> cmx_magic_number then begin
+          close_in ic;
+          raise(Error(Not_a_unit_info filename))
+        end;
+        let ui = (input_value ic : unit_infos) in
+        let crc = Digest.input ic in
+        close_in ic;
+        (ui, crc)
+      with End_of_file | Failure _ ->
+        close_in ic;
+        raise(Error(Corrupted_unit_info(filename)))
+    )
+  )
 
 let read_library_info filename =
-  let ic = open_in_bin filename in
-  let buffer = really_input_string ic (String.length cmxa_magic_number) in
-  if buffer <> cmxa_magic_number then
-    raise(Error(Not_a_unit_info filename));
-  let infos = (input_value ic : library_infos) in
-  close_in ic;
-  infos
+  Profile.record_call "load" (fun () ->
+    Profile.record_call "cmxa" (fun () ->
+      let ic = open_in_bin filename in
+      let buffer = really_input_string ic (String.length cmxa_magic_number) in
+      if buffer <> cmxa_magic_number then
+        raise(Error(Not_a_unit_info filename));
+      let infos = (input_value ic : library_infos) in
+      close_in ic;
+      infos
+    )
+  )
 
 (* Read and cache info on global identifiers *)
 
@@ -253,14 +261,17 @@ let need_send_fun n mode =
 (* Write the description of the current unit *)
 
 let write_unit_info info filename =
-  let oc = open_out_bin filename in
-  output_string oc cmx_magic_number;
-  output_value oc info;
-  flush oc;
-  let crc = Digest.file filename in
-  Digest.output oc crc;
-  close_out oc
-
+  Profile.record_call "store" (fun () ->
+    Profile.record_call "cmx" (fun () ->
+      let oc = open_out_bin filename in
+      output_string oc cmx_magic_number;
+      output_value oc info;
+      flush oc;
+      let crc = Digest.file filename in
+      Digest.output oc crc;
+      close_out oc
+    )
+  )
 let save_unit_info filename =
   current_unit.ui_imports_cmi <- Array.of_list (Env.imports());
   write_unit_info current_unit filename

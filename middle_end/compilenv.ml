@@ -151,52 +151,60 @@ let current_unit_infos () =
   current_unit
 
 let read_unit_info filename =
-  let ic = open_in_bin filename in
-  try
-    let buffer = really_input_string ic (String.length cmx_magic_number) in
-    if buffer <> cmx_magic_number then begin
-      close_in ic;
-      raise(Error(Not_a_unit_info filename))
-    end;
-    let uir = (input_value ic : unit_infos_raw) in
-    let first_section_offset = pos_in ic in
-    let sections = File_sections.create uir.uir_section_toc filename ic ~first_section_offset in
-    seek_in ic (first_section_offset + uir.uir_sections_length);
-    let export_info =
-      match uir.uir_export_info with
-      | Clambda_raw info -> Clambda info
-      | Flambda1_raw info -> Flambda1 info
-      | Flambda2_raw None -> Flambda2 None
-      | Flambda2_raw (Some info) ->
-        Flambda2 (Some (Flambda2_cmx.Flambda_cmx_format.from_raw ~sections info))
-    in
-    let ui = {
-      ui_unit = uir.uir_unit;
-      ui_defines = uir.uir_defines;
-      ui_imports_cmi = uir.uir_imports_cmi |> Array.to_list;
-      ui_imports_cmx = uir.uir_imports_cmx |> Array.to_list;
-      ui_generic_fns = uir.uir_generic_fns;
-      ui_export_info = export_info;
-      ui_checks = uir.uir_checks;
-      ui_force_link = uir.uir_force_link
-    }
-    in
-    let crc = Digest.input ic in
-    if Array.length uir.uir_section_toc = 0 then
-      close_in ic;
-    (ui, crc)
-  with End_of_file | Failure _ ->
-    close_in ic;
-    raise(Error(Corrupted_unit_info(filename)))
+  Profile.record_call "load" (fun () ->
+    Profile.record_call "cmx" (fun () ->
+      let ic = open_in_bin filename in
+      try
+        let buffer = really_input_string ic (String.length cmx_magic_number) in
+        if buffer <> cmx_magic_number then begin
+          close_in ic;
+          raise(Error(Not_a_unit_info filename))
+        end;
+        let uir = (input_value ic : unit_infos_raw) in
+        let first_section_offset = pos_in ic in
+        let sections = File_sections.create uir.uir_section_toc filename ic ~first_section_offset in
+        seek_in ic (first_section_offset + uir.uir_sections_length);
+        let export_info =
+          match uir.uir_export_info with
+          | Clambda_raw info -> Clambda info
+          | Flambda1_raw info -> Flambda1 info
+          | Flambda2_raw None -> Flambda2 None
+          | Flambda2_raw (Some info) ->
+            Flambda2 (Some (Flambda2_cmx.Flambda_cmx_format.from_raw ~sections info))
+        in
+        let ui = {
+          ui_unit = uir.uir_unit;
+          ui_defines = uir.uir_defines;
+          ui_imports_cmi = uir.uir_imports_cmi |> Array.to_list;
+          ui_imports_cmx = uir.uir_imports_cmx |> Array.to_list;
+          ui_generic_fns = uir.uir_generic_fns;
+          ui_export_info = export_info;
+          ui_checks = uir.uir_checks;
+          ui_force_link = uir.uir_force_link
+        }
+        in
+        let crc = Digest.input ic in
+        if Array.length uir.uir_section_toc = 0 then
+          close_in ic;
+        (ui, crc)
+      with End_of_file | Failure _ ->
+        close_in ic;
+        raise(Error(Corrupted_unit_info(filename)))
+    )
+  )
 
 let read_library_info filename =
-  let ic = open_in_bin filename in
-  let buffer = really_input_string ic (String.length cmxa_magic_number) in
-  if buffer <> cmxa_magic_number then
-    raise(Error(Not_a_unit_info filename));
-  let infos = (input_value ic : library_infos) in
-  close_in ic;
-  infos
+  Profile.record_call "load" (fun () ->
+    Profile.record_call "cmxa" (fun () ->
+      let ic = open_in_bin filename in
+      let buffer = really_input_string ic (String.length cmxa_magic_number) in
+      if buffer <> cmxa_magic_number then
+        raise(Error(Not_a_unit_info filename));
+      let infos = (input_value ic : library_infos) in
+      close_in ic;
+      infos
+    )
+  )
 
 
 (* Read and cache info on global identifiers *)
@@ -360,36 +368,40 @@ let ensure_sharing_between_cmi_and_cmx_imports cmi_imports cmx_imports =
 *)
 
 let write_unit_info info filename =
-  let raw_export_info, sections =
-    match info.ui_export_info with
-    | Clambda info -> Clambda_raw info, File_sections.empty
-    | Flambda1 info -> Flambda1_raw info, File_sections.empty
-    | Flambda2 None -> Flambda2_raw None, File_sections.empty
-    | Flambda2 (Some info) ->
-      let info, sections = Flambda2_cmx.Flambda_cmx_format.to_raw info in
-      Flambda2_raw (Some info), sections
-  in
-  let serialized_sections, toc, total_length = File_sections.serialize sections in
-  let raw_info = {
-    uir_unit = info.ui_unit;
-    uir_defines = info.ui_defines;
-    uir_imports_cmi = Array.of_list info.ui_imports_cmi;
-    uir_imports_cmx = Array.of_list info.ui_imports_cmx;
-    uir_generic_fns = info.ui_generic_fns;
-    uir_export_info = raw_export_info;
-    uir_checks = info.ui_checks;
-    uir_force_link = info.ui_force_link;
-    uir_section_toc = toc;
-    uir_sections_length = total_length;
-  } in
-  let oc = open_out_bin filename in
-  output_string oc cmx_magic_number;
-  output_value oc raw_info;
-  Array.iter (output_string oc) serialized_sections;
-  flush oc;
-  let crc = Digest.file filename in
-  Digest.output oc crc;
-  close_out oc
+  Profile.record_call "store" (fun () ->
+    Profile.record_call "cmx" (fun () ->
+      let raw_export_info, sections =
+        match info.ui_export_info with
+        | Clambda info -> Clambda_raw info, File_sections.empty
+        | Flambda1 info -> Flambda1_raw info, File_sections.empty
+        | Flambda2 None -> Flambda2_raw None, File_sections.empty
+        | Flambda2 (Some info) ->
+          let info, sections = Flambda2_cmx.Flambda_cmx_format.to_raw info in
+          Flambda2_raw (Some info), sections
+      in
+      let serialized_sections, toc, total_length = File_sections.serialize sections in
+      let raw_info = {
+        uir_unit = info.ui_unit;
+        uir_defines = info.ui_defines;
+        uir_imports_cmi = Array.of_list info.ui_imports_cmi;
+        uir_imports_cmx = Array.of_list info.ui_imports_cmx;
+        uir_generic_fns = info.ui_generic_fns;
+        uir_export_info = raw_export_info;
+        uir_checks = info.ui_checks;
+        uir_force_link = info.ui_force_link;
+        uir_section_toc = toc;
+        uir_sections_length = total_length;
+      } in
+      let oc = open_out_bin filename in
+      output_string oc cmx_magic_number;
+      output_value oc raw_info;
+      Array.iter (output_string oc) serialized_sections;
+      flush oc;
+      let crc = Digest.file filename in
+      Digest.output oc crc;
+      close_out oc
+    )
+  )
 
 let save_unit_info filename =
   current_unit.ui_imports_cmi <- Env.imports();
