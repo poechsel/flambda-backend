@@ -98,8 +98,9 @@ let cross_section cfg_with_layout src dst =
     match src_section, dst_section with
     | None, None -> false
     | Some src_name, Some dst_name -> not (String.equal src_name dst_name)
-    | Some _, None -> Misc.fatal_errorf "Missing section for %d" dst
-    | None, Some _ -> Misc.fatal_errorf "Missing section for %d" src
+    | Some _, None when dst <> -1 -> Misc.fatal_errorf "Missing section for %d" dst
+    | None, Some _ when src <> -1 -> Misc.fatal_errorf "Missing section for %d" src
+    | None, Some _ | Some _, None -> false
   else false
 
 let linearize_terminator cfg_with_layout func start

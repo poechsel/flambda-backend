@@ -216,7 +216,7 @@ let emit_named_text_section ?(suffix = "") func_name =
        systems does not support function sections. *)
       ->  assert false
     | _ -> D.section
-             [ Printf.sprintf ".text.caml.%s%s" (emit_symbol func_name) suffix ]
+             [ Printf.sprintf ".text.caml%s" suffix ]
              (Some "ax")
              ["@progbits"]
     end
