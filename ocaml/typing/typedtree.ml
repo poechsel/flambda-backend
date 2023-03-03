@@ -18,6 +18,8 @@
 open Asttypes
 open Types
 
+module Uid = Shape.Uid
+
 (* Value expressions for the core language *)
 
 type partial = Partial | Total
@@ -53,9 +55,9 @@ and pat_extra =
 and 'k pattern_desc =
   (* value patterns *)
   | Tpat_any : value pattern_desc
-  | Tpat_var : Ident.t * string loc * value_mode -> value pattern_desc
+  | Tpat_var : Ident.t * string loc * value_mode * Uid.t -> value pattern_desc
   | Tpat_alias :
-      value general_pattern * Ident.t * string loc * value_mode -> value pattern_desc
+      value general_pattern * Ident.t * string loc * value_mode * Uid.t -> value pattern_desc
   | Tpat_constant : constant -> value pattern_desc
   | Tpat_tuple : value general_pattern list -> value pattern_desc
   | Tpat_construct :
@@ -364,6 +366,7 @@ and module_binding =
     {
      mb_id: Ident.t option;
      mb_name: string option loc;
+     mb_decl_uid: Uid.t;
      mb_presence: module_presence;
      mb_expr: module_expr;
      mb_attributes: attribute list;
@@ -444,6 +447,7 @@ and module_declaration =
     {
      md_id: Ident.t option;
      md_name: string option loc;
+     md_uid: Uid.t;
      md_presence: module_presence;
      md_type: module_type;
      md_attributes: attribute list;
@@ -464,6 +468,7 @@ and module_type_declaration =
     {
      mtd_id: Ident.t;
      mtd_name: string loc;
+     mtd_uid: Uid.t;
      mtd_type: module_type option;
      mtd_attributes: attribute list;
      mtd_loc: Location.t;
@@ -756,7 +761,7 @@ type pattern_action =
 let shallow_iter_pattern_desc
   : type k . pattern_action -> k pattern_desc -> unit
   = fun f -> function
-  | Tpat_alias(p, _, _, _) -> f.f p
+  | Tpat_alias(p, _, _, _, _) -> f.f p
   | Tpat_tuple patl -> List.iter f.f patl
   | Tpat_construct(_, _, patl, _) -> List.iter f.f patl
   | Tpat_variant(_, pat, _) -> Option.iter f.f pat
@@ -776,8 +781,8 @@ type pattern_transformation =
 let shallow_map_pattern_desc
   : type k . pattern_transformation -> k pattern_desc -> k pattern_desc
   = fun f d -> match d with
-  | Tpat_alias (p1, id, s, m) ->
-      Tpat_alias (f.f p1, id, s, m)
+  | Tpat_alias (p1, id, s, m, uid) ->
+      Tpat_alias (f.f p1, id, s, m, uid)
   | Tpat_tuple pats ->
       Tpat_tuple (List.map f.f pats)
   | Tpat_record (lpats, closed) ->
@@ -838,11 +843,11 @@ let rec iter_bound_idents
   : type k . _ -> k general_pattern -> _
   = fun f pat ->
   match pat.pat_desc with
-  | Tpat_var (id, s, _mode) ->
-     f (id,s,pat.pat_type)
-  | Tpat_alias(p, id, s, _mode) ->
+  | Tpat_var (id, s, _mode, uid) ->
+     f (id,s,pat.pat_type, uid)
+  | Tpat_alias(p, id, s, _mode, uid) ->
       iter_bound_idents f p;
-      f (id,s,pat.pat_type)
+      f (id,s,pat.pat_type, uid)
   | Tpat_or(p1, _, _) ->
       (* Invariant : both arguments bind the same variables *)
       iter_bound_idents f p1
@@ -858,7 +863,7 @@ let rev_pat_bound_idents_full pat =
   !idents_full
 
 let rev_only_idents idents_full =
-  List.rev_map (fun (id,_,_) -> id) idents_full
+  List.rev_map (fun (id,_,_,_) -> id) idents_full
 
 let pat_bound_idents_full pat =
   List.rev (rev_pat_bound_idents_full pat)
@@ -867,8 +872,8 @@ let pat_bound_idents pat =
 
 let rev_let_bound_idents_full bindings =
   let idents_full = ref [] in
-  let add id_full = idents_full := id_full :: !idents_full in
-  List.iter (fun vb -> iter_bound_idents add vb.vb_pat) bindings;
+  let add vb id_full = idents_full := (vb, id_full) :: !idents_full in
+  List.iter (fun vb -> iter_bound_idents (add vb) vb.vb_pat) bindings;
   !idents_full
 
 let let_bound_idents_with_modes bindings =
@@ -876,20 +881,26 @@ let let_bound_idents_with_modes bindings =
   let rec loop : type k . k general_pattern -> _ =
     fun pat ->
       match pat.pat_desc with
-      | Tpat_var (id, { loc }, mode) ->
+      | Tpat_var (id, { loc }, mode, _uid) ->
           Ident.Tbl.add modes id (loc, mode)
-      | Tpat_alias(p, id, { loc }, mode) ->
+      | Tpat_alias(p, id, { loc }, mode, _uid) ->
           loop p;
           Ident.Tbl.add modes id (loc, mode)
       | d -> shallow_iter_pattern_desc { f = loop } d
   in
   List.iter (fun vb -> loop vb.vb_pat) bindings;
   List.rev_map
-    (fun (id, _, _) -> id, List.rev (Ident.Tbl.find_all modes id))
+    (fun  (_, (id, _, _, _)) -> id, List.rev (Ident.Tbl.find_all modes id))
     (rev_let_bound_idents_full bindings)
 
-let let_bound_idents_full bindings =
+let rev_full idents_full =
+  List.rev_map (fun (_vb, full) -> full) idents_full
+let rev_only_idents idents_full =
+  List.rev_map (fun (_vb, (id,_,_,_)) -> id) idents_full
+let let_bound_idents_full_with_bindings bindings =
   List.rev (rev_let_bound_idents_full bindings)
+let let_bound_idents_full bindings =
+  rev_full (rev_let_bound_idents_full bindings)
 let let_bound_idents pat =
   rev_only_idents (rev_let_bound_idents_full pat)
 
@@ -898,14 +909,14 @@ let alpha_var env id = List.assoc id env
 let rec alpha_pat
   : type k . _ -> k general_pattern -> k general_pattern
   = fun env p -> match p.pat_desc with
-  | Tpat_var (id, s, mode) -> (* note the ``Not_found'' case *)
+  | Tpat_var (id, s, mode, uid) -> (* note the ``Not_found'' case *)
       {p with pat_desc =
-       try Tpat_var (alpha_var env id, s, mode) with
+       try Tpat_var (alpha_var env id, s, mode, uid) with
        | Not_found -> Tpat_any}
-  | Tpat_alias (p1, id, s, mode) ->
+  | Tpat_alias (p1, id, s, mode, uid) ->
       let new_p =  alpha_pat env p1 in
       begin try
-        {p with pat_desc = Tpat_alias (new_p, alpha_var env id, s, mode)}
+        {p with pat_desc = Tpat_alias (new_p, alpha_var env id, s, mode, uid)}
       with
       | Not_found -> new_p
       end

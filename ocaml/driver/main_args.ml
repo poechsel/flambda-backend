@@ -36,8 +36,12 @@ let mk_annot f =
   "-annot", Arg.Unit f, " (deprecated) Save information in <filename>.annot"
 ;;
 
+let mk_binannot_cmt f =
+  "-bin-annot-cmt", Arg.Unit f, " Save typedtree in <filename>.cmt"
+;;
+
 let mk_binannot f =
-  "-bin-annot", Arg.Unit f, " Save typedtree in <filename>.cmt"
+  "-bin-annot", Arg.Unit f, " Save shape in <filename>.cms"
 ;;
 
 let mk_c f =
@@ -1007,6 +1011,7 @@ module type Compiler_options = sig
   val _a : unit -> unit
   val _annot : unit -> unit
   val _binannot : unit -> unit
+  val _binannot_cmt : unit -> unit
   val _c : unit -> unit
   val _cc : string -> unit
   val _cclib : string -> unit
@@ -1205,6 +1210,7 @@ struct
     mk_absname F._absname;
     mk_annot F._annot;
     mk_binannot F._binannot;
+    mk_binannot_cmt F._binannot_cmt;
     mk_c F._c;
     mk_cc F._cc;
     mk_cclib F._cclib;
@@ -1392,6 +1398,7 @@ struct
     mk_afl_inst_ratio F._afl_inst_ratio;
     mk_annot F._annot;
     mk_binannot F._binannot;
+    mk_binannot_cmt F._binannot_cmt;
     mk_inline_branch_factor F._inline_branch_factor;
     mk_c F._c;
     mk_cc F._cc;
@@ -1910,6 +1917,7 @@ module Default = struct
     let _args = Arg.read_arg
     let _args0 = Arg.read_arg0
     let _binannot = set binary_annotations
+    let _binannot_cmt = set binary_annotations_cmt
     let _c = set compile_only
     let _cc s = c_compiler := (Some s)
     let _cclib s = Compenv.defer (ProcessObjects (Misc.rev_split_words s))
