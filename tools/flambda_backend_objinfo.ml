@@ -137,6 +137,21 @@ let print_cmt_infos cmt =
     | None -> ""
     | Some crc -> string_of_crc crc)
 
+let print_cms_infos cms =
+  let open Cms_format in
+  printf "cms unit name: %a\n" Compilation_unit.output cms.cms_modname;
+  printf "Source file: %s\n"
+    (match cms.cms_sourcefile with None -> "(none)" | Some f -> f);
+  printf "Compilation flags:";
+  Array.iter print_spaced_string cms.cms_args;
+  printf "\nLoad path:";
+  List.iter print_spaced_string cms.cms_loadpath;
+  printf "\n";
+  printf "cms interface digest: %s\n"
+    (match cms.cms_interface_digest with
+    | None -> ""
+    | Some crc -> string_of_crc crc)
+
 let print_general_infos print_name name crc defines iter_cmi iter_cmx =
   printf "Name: %a\n" print_name name;
   printf "CRC of implementation: %s\n" (string_of_crc crc);
@@ -342,6 +357,18 @@ let dump_obj_by_kind filename ic obj_kind =
     end;
     begin
       match cmt with None -> () | Some cmt -> print_cmt_infos cmt
+    end
+  | Cms ->
+    close_in ic;
+    let cmi, cms = Cms_format.read filename in
+    begin
+      match cmi with
+      | None -> ()
+      | Some cmi ->
+        print_cmi_infos cmi.Cmi_format.cmi_name cmi.Cmi_format.cmi_crcs
+    end;
+    begin
+      match cms with None -> () | Some cms -> print_cms_infos cms
     end
   | Cmx _config ->
     let uir = (input_value ic : unit_infos_raw) in
