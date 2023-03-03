@@ -37,11 +37,11 @@ let mk_annot f =
 ;;
 
 let mk_binannot_cmt f =
-  "-bin-annot-cmt", Arg.Unit f, " Save typedtree in <filename>.cmt"
+  "-bin-annot", Arg.Unit f, " Save typedtree in <filename>.cmt"
 ;;
 
 let mk_binannot f =
-  "-bin-annot", Arg.Unit f, " Save shape in <filename>.cms"
+  "-bin-annot-cms", Arg.Unit f, " Save shape in <filename>.cms"
 ;;
 
 let mk_c f =
