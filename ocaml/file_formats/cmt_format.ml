@@ -45,6 +45,18 @@ and binary_part =
 | Partial_signature_item of signature_item
 | Partial_module_type of module_type
 
+type item_declaration =
+  | Class_declaration of class_declaration
+  | Class_description of class_description
+  | Class_type_declaration of class_type_declaration
+  | Extension_constructor of extension_constructor
+  | Module_binding of module_binding
+  | Module_declaration of module_declaration
+  | Module_type_declaration of module_type_declaration
+  | Type_declaration of type_declaration
+  | Value_binding of value_binding
+  | Value_description of value_description
+
 type cmt_infos = {
   cmt_modname : Compilation_unit.t;
   cmt_annots : binary_annots;
@@ -60,7 +72,7 @@ type cmt_infos = {
   cmt_imports : Import_info.t array;
   cmt_interface_digest : Digest.t option;
   cmt_use_summaries : bool;
-  cmt_uid_to_loc : Location.t Shape.Uid.Tbl.t;
+  cmt_uid_to_decl : item_declaration Shape.Uid.Tbl.t;
   cmt_impl_shape : Shape.t option; (* None for mli *)
 }
 
@@ -73,10 +85,64 @@ let need_to_clear_env =
 
 let keep_only_summary = Env.keep_only_summary
 
-open Tast_mapper
-
 let cenv =
   {Tast_mapper.default with env = fun _sub env -> keep_only_summary env}
+
+  let uid_to_decl : item_declaration Types.Uid.Tbl.t ref =
+    Local_store.s_table Types.Uid.Tbl.create 16
+
+  let register_uid uid fragment =
+    Types.Uid.Tbl.add !uid_to_decl uid fragment
+
+  let iter_decl =
+    Tast_iterator.{ default_iterator with
+
+    value_bindings = (fun sub ((_, vbs) as bindings) ->
+      let bound_idents = let_bound_idents_full_with_bindings vbs in
+      List.iter
+        (fun (vb, (_id, _loc, _typ, uid)) ->
+          register_uid uid (Value_binding vb))
+        bound_idents;
+        default_iterator.value_bindings sub bindings);
+
+    module_binding = (fun sub mb ->
+      register_uid mb.mb_decl_uid (Module_binding mb);
+      default_iterator.module_binding sub mb);
+
+    module_declaration = (fun sub md ->
+      register_uid md.md_uid (Module_declaration md);
+      default_iterator.module_declaration sub md);
+
+    module_type_declaration = (fun sub mtd ->
+      register_uid mtd.mtd_uid (Module_type_declaration mtd);
+      default_iterator.module_type_declaration sub mtd);
+
+    value_description = (fun sub vd ->
+      register_uid vd.val_val.val_uid (Value_description vd);
+      default_iterator.value_description sub vd);
+
+    type_declaration = (fun sub td ->
+      (* compiler-generated "row_names" share the uid of their corresponding
+         class declaration, so we ignore them to prevent duplication *)
+      if not (Btype.is_row_name (Ident.name td.typ_id)) then
+        register_uid td.typ_type.type_uid (Type_declaration td);
+        default_iterator.type_declaration sub td);
+
+    extension_constructor = (fun sub ec ->
+      register_uid ec.ext_type.ext_uid (Extension_constructor ec);
+      default_iterator.extension_constructor sub ec);
+
+    class_declaration = (fun sub cd ->
+      register_uid cd.ci_decl.cty_uid (Class_declaration cd);
+      default_iterator.class_declaration sub cd);
+
+    class_type_declaration = (fun sub ctd ->
+      register_uid ctd.ci_decl.cty_uid (Class_type_declaration ctd);
+      default_iterator.class_type_declaration sub ctd);
+
+    class_description =(fun sub cd ->
+      register_uid cd.ci_decl.cty_uid (Class_description cd);
+      default_iterator.class_description sub cd); }
 
 let clear_part = function
   | Partial_structure s -> Partial_structure (cenv.structure cenv s)
@@ -102,6 +168,24 @@ let clear_env binary_annots =
         Partial_interface (Array.map clear_part array)
 
   else binary_annots
+
+let gather_declarations_in_part = function
+  | Partial_structure s -> iter_decl.structure iter_decl s
+  | Partial_structure_item s -> iter_decl.structure_item iter_decl s
+  | Partial_expression e -> iter_decl.expr iter_decl e
+  | Partial_pattern (_category, p) -> iter_decl.pat iter_decl p
+  | Partial_class_expr ce -> iter_decl.class_expr iter_decl ce
+  | Partial_signature s -> iter_decl.signature iter_decl s
+  | Partial_signature_item s -> iter_decl.signature_item iter_decl s
+  | Partial_module_type s -> iter_decl.module_type iter_decl s
+
+let gather_declarations binary_annots =
+  match binary_annots with
+  | Implementation s -> iter_decl.structure iter_decl s
+  | Interface s -> iter_decl.signature iter_decl s
+  | Packed _ -> ()
+  | Partial_implementation array -> Array.iter gather_declarations_in_part array
+  | Partial_interface array -> Array.iter gather_declarations_in_part array
 
 exception Error of error
 
@@ -185,9 +269,11 @@ let save_cmt filename modname binary_annots sourcefile initial_env cmi shape =
            Array.sort compare_imports imports;
            imports
          in
+         let cmt_annots = clear_env binary_annots in
+         gather_declarations cmt_annots;
          let cmt = {
            cmt_modname = modname;
-           cmt_annots = clear_env binary_annots;
+           cmt_annots;
            cmt_value_dependencies = !value_deps;
            cmt_comments = Lexer.comments ();
            cmt_args = Sys.argv;
@@ -200,7 +286,7 @@ let save_cmt filename modname binary_annots sourcefile initial_env cmi shape =
            cmt_imports = get_imports ();
            cmt_interface_digest = this_crc;
            cmt_use_summaries = need_to_clear_env;
-           cmt_uid_to_loc = Env.get_uid_to_loc_tbl ();
+           cmt_uid_to_decl = !uid_to_decl;
            cmt_impl_shape = shape;
          } in
          output_cmt oc cmt)

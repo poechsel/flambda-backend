@@ -690,6 +690,7 @@ type pattern_variable =
     pv_loc: Location.t;
     pv_as_var: bool;
     pv_attributes: attributes;
+    pv_uid : Uid.t;
   }
 
 type module_variable =
@@ -738,13 +739,15 @@ let enter_variable ?(is_module=false) ?(is_as_variable=false) loc name mode ty
       !pattern_variables
   then raise(Error(loc, Env.empty, Multiply_bound_variable name.txt));
   let id = Ident.create_local name.txt in
+  let pv_uid = Uid.mk ~current_unit:(Env.get_unit_name ()) in
   pattern_variables :=
     {pv_id = id;
      pv_mode = mode;
      pv_type = ty;
      pv_loc = loc;
      pv_as_var = is_as_variable;
-     pv_attributes = attrs} :: !pattern_variables;
+     pv_attributes = attrs;
+     pv_uid} :: !pattern_variables;
   if is_module then begin
     (* Note: unpack patterns enter a variable of the same name *)
     if not !allow_modules then
@@ -752,7 +755,7 @@ let enter_variable ?(is_module=false) ?(is_as_variable=false) loc name mode ty
     escape ~loc ~env:Env.empty ~reason:Other mode;
     module_variables := (name, loc) :: !module_variables
   end;
-  id
+  id, pv_uid
 
 let sort_pattern_variables vs =
   List.sort
@@ -827,7 +830,7 @@ and build_as_type_aux ~refine ~mode (env : Env.t ref) p =
   let build_as_type env p =
     fst (build_as_type_and_mode ~refine ~mode env p) in
   match p.pat_desc with
-    Tpat_alias(p1,_, _, _) -> build_as_type_and_mode ~refine ~mode env p1
+    Tpat_alias(p1,_, _, _, _) -> build_as_type_and_mode ~refine ~mode env p1
   | Tpat_tuple pl ->
       let tyl = List.map (build_as_type env) pl in
       newty (Ttuple tyl), mode
@@ -1233,8 +1236,9 @@ let type_for_loop_index ~loc ~env ~param =
           ->
             let check s = Warnings.Unused_for_index s in
             let pv_id = Ident.create_local txt in
+            let pv_uid = Uid.mk ~current_unit:(Env.get_unit_name ()) in
             let pv =
-              { pv_id; pv_mode; pv_type; pv_loc; pv_as_var; pv_attributes }
+              { pv_id; pv_mode; pv_type; pv_loc; pv_as_var; pv_attributes; pv_uid }
             in
             pv_id, add_pattern_variables ~check ~check_as:check env [pv])
 
@@ -1249,13 +1253,13 @@ let type_comprehension_for_range_iterator_index ~loc ~env ~param =
        for duplicates or anything else. *)
     ~any:Fun.id
     ~var:(fun ~name ~pv_mode ~pv_type ~pv_loc ~pv_as_var ~pv_attributes ->
-            enter_variable
+            fst (enter_variable
               ~is_as_variable:pv_as_var
               pv_loc
               name
               pv_mode
               pv_type
-              pv_attributes)
+              pv_attributes))
 
 
 (* Type paths *)
@@ -2090,14 +2094,15 @@ and type_pat_aux
   | Ppat_var name ->
       let ty = instance expected_ty in
       let alloc_mode = expect_pat_mode_cross !env expected_ty alloc_mode in
-      let id = (* PR#7330 *)
+      let id, uid = (* PR#7330 *)
         if name.txt = "*extension*" then
-          Ident.create_local name.txt
+          Ident.create_local name.txt,
+          Uid.mk ~current_unit:(Env.get_unit_name ())
         else
           enter_variable loc name alloc_mode.mode ty sp.ppat_attributes
       in
       rvp k {
-        pat_desc = Tpat_var (id, name, alloc_mode.mode);
+        pat_desc = Tpat_var (id, name, alloc_mode.mode, uid);
         pat_loc = loc; pat_extra=[];
         pat_type = ty;
         pat_attributes = sp.ppat_attributes;
@@ -2116,10 +2121,10 @@ and type_pat_aux
             pat_env = !env }
       | Some s ->
           let v = { name with txt = s } in
-          let id = enter_variable loc v alloc_mode.mode
+          let id, uid = enter_variable loc v alloc_mode.mode
                      t ~is_module:true sp.ppat_attributes in
           rvp k {
-            pat_desc = Tpat_var (id, v, alloc_mode.mode);
+            pat_desc = Tpat_var (id, v, alloc_mode.mode, uid);
             pat_loc = sp.ppat_loc;
             pat_extra=[Tpat_unpack, loc, sp.ppat_attributes];
             pat_type = t;
@@ -2131,12 +2136,12 @@ and type_pat_aux
       type_pat Value sq expected_ty (fun q ->
         let ty_var, mode = solve_Ppat_alias ~refine ~mode:alloc_mode.mode env q in
         let mode = mode_cross !env expected_ty mode in
-        let id =
+        let id, uid =
           enter_variable ~is_as_variable:true loc name mode
             ty_var sp.ppat_attributes
         in
         rvp k {
-          pat_desc = Tpat_alias(q, id, name, mode);
+          pat_desc = Tpat_alias(q, id, name, mode, uid);
           pat_loc = loc; pat_extra=[];
           pat_type = q.pat_type;
           pat_attributes = sp.ppat_attributes;
@@ -3715,8 +3720,8 @@ let rec name_pattern default = function
     [] -> Ident.create_local default
   | p :: rem ->
     match p.pat_desc with
-      Tpat_var (id, _, _) -> id
-    | Tpat_alias(_, id, _, _) -> id
+      Tpat_var (id, _, _, _) -> id
+    | Tpat_alias(_, id, _, _, _) -> id
     | _ -> name_pattern default rem
 
 let name_cases default lst =
@@ -5877,7 +5882,8 @@ and type_argument ?explanation ?recarg env (mode : expected_mode) sarg
           }
         in
         let exp_env = Env.add_value ~mode id desc env in
-        {pat_desc = Tpat_var (id, mknoloc name, mode); pat_type = ty;pat_extra=[];
+        {pat_desc = Tpat_var (id, mknoloc name, mode, desc.val_uid);
+         pat_type = ty;pat_extra=[];
          pat_attributes = [];
          pat_loc = Location.none; pat_env = env},
         {exp_type = ty; exp_loc = Location.none; exp_env = exp_env;

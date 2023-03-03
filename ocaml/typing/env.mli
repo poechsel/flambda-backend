@@ -18,10 +18,6 @@
 open Types
 open Misc
 
-val register_uid : Uid.t -> Location.t -> unit
-
-val get_uid_to_loc_tbl : unit -> Location.t Types.Uid.Tbl.t
-
 type value_unbound_reason =
   | Val_unbound_instance_variable
   | Val_unbound_self
@@ -530,3 +526,6 @@ type address_head =
   | AHlocal of Ident.t
 
 val address_head : address -> address_head
+
+(* Forward decl filled in by Cmt_format *)
+val clear_uid_tbl : (unit -> unit) ref

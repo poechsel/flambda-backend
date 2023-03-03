@@ -251,7 +251,8 @@ let read_one_param ppf position name v =
   if not handled then
   match name with
   | "g" -> set "g" [ Clflags.debug ] v
-  | "bin-annot" -> set "bin-annot" [ Clflags.binary_annotations ] v
+  | "bin-annot" ->
+    set "bin-annot" [ Clflags.binary_annotations ] v
   | "afl-instrument" -> set "afl-instrument" [ Clflags.afl_instrument ] v
   | "afl-inst-ratio" ->
       int_setter ppf "afl-inst-ratio" afl_inst_ratio v
