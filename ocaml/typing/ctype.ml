@@ -3829,7 +3829,7 @@ let may_instantiate inst_nongen t1 =
   if inst_nongen then level <> generic_level - 1
                  else level =  generic_level
 
-let rec moregen inst_nongen variance type_pairs env t1 t2 =
+let rec moregen ~with_expansion inst_nongen variance type_pairs env t1 t2 =
   if eq_type t1 t2 then () else
 
   try
@@ -3842,8 +3842,8 @@ let rec moregen inst_nongen variance type_pairs env t1 t2 =
     | (Tconstr (p1, [], _), Tconstr (p2, [], _)) when Path.same p1 p2 ->
         ()
     | _ ->
-        let t1' = expand_head env t1 in
-        let t2' = expand_head env t2 in
+        let t1' = if with_expansion then expand_head env t1 else t1 in
+        let t2' = if with_expansion then expand_head env t2 else t2 in
         (* Expansion may have changed the representative of the types... *)
         if eq_type t1' t2' then () else
         let pairs = relevant_pairs type_pairs variance in
@@ -3858,47 +3858,47 @@ let rec moregen inst_nongen variance type_pairs env t1 t2 =
              Tarrow ((l2,a2,r2), t2, u2, _)) when
                (l1 = l2
                 || !Clflags.classic && not (is_optional l1 || is_optional l2)) ->
-              moregen inst_nongen (neg_variance variance) type_pairs env t1 t2;
-              moregen inst_nongen variance type_pairs env u1 u2;
+              moregen ~with_expansion inst_nongen (neg_variance variance) type_pairs env t1 t2;
+              moregen ~with_expansion inst_nongen variance type_pairs env u1 u2;
               moregen_alloc_mode (neg_variance variance) a1 a2;
               moregen_alloc_mode variance r1 r2
           | (Ttuple tl1, Ttuple tl2) ->
-              moregen_list inst_nongen variance type_pairs env tl1 tl2
+              moregen_list ~with_expansion inst_nongen variance type_pairs env tl1 tl2
           | (Tconstr (p1, tl1, _), Tconstr (p2, tl2, _))
                 when Path.same p1 p2 -> begin
               match variance with
               | Invariant | Bivariant ->
-                  moregen_list inst_nongen variance type_pairs env tl1 tl2
+                  moregen_list ~with_expansion inst_nongen variance type_pairs env tl1 tl2
               | _ ->
                 match Env.find_type p1 env with
                 | decl ->
-                    moregen_param_list inst_nongen variance type_pairs env
+                    moregen_param_list ~with_expansion inst_nongen variance type_pairs env
                       decl.type_variance tl1 tl2
                 | exception Not_found ->
-                    moregen_list inst_nongen Invariant type_pairs env tl1 tl2
+                    moregen_list ~with_expansion inst_nongen Invariant type_pairs env tl1 tl2
             end
           | (Tpackage (p1, fl1), Tpackage (p2, fl2)) ->
               begin try
-                unify_package env (moregen_list inst_nongen variance type_pairs env)
+                unify_package env (moregen_list ~with_expansion inst_nongen variance type_pairs env)
                   (get_level t1') p1 fl1 (get_level t2') p2 fl2
               with Not_found -> raise_unexplained_for Moregen
               end
           | (Tnil,  Tconstr _ ) -> raise_for Moregen (Obj (Abstract_row Second))
           | (Tconstr _,  Tnil ) -> raise_for Moregen (Obj (Abstract_row First))
           | (Tvariant row1, Tvariant row2) ->
-              moregen_row inst_nongen variance type_pairs env row1 row2
+              moregen_row ~with_expansion inst_nongen variance type_pairs env row1 row2
           | (Tobject (fi1, _nm1), Tobject (fi2, _nm2)) ->
-              moregen_fields inst_nongen variance type_pairs env fi1 fi2
+              moregen_fields ~with_expansion inst_nongen variance type_pairs env fi1 fi2
           | (Tfield _, Tfield _) ->           (* Actually unused *)
-              moregen_fields inst_nongen variance type_pairs env
+              moregen_fields ~with_expansion inst_nongen variance type_pairs env
                 t1' t2'
           | (Tnil, Tnil) ->
               ()
           | (Tpoly (t1, []), Tpoly (t2, [])) ->
-              moregen inst_nongen variance type_pairs env t1 t2
+              moregen ~with_expansion inst_nongen variance type_pairs env t1 t2
           | (Tpoly (t1, tl1), Tpoly (t2, tl2)) ->
               enter_poly_for Moregen env univar_pairs t1 tl1 t2 tl2
-                (moregen inst_nongen variance type_pairs env)
+                (moregen ~with_expansion inst_nongen variance type_pairs env)
           | (Tunivar _, Tunivar _) ->
               unify_univar_for Moregen t1' t2' !univar_pairs
           | (_, _) ->
@@ -3908,21 +3908,21 @@ let rec moregen inst_nongen variance type_pairs env t1 t2 =
     raise_trace_for Moregen (Diff {got = t1; expected = t2} :: trace)
 
 
-and moregen_list inst_nongen variance type_pairs env tl1 tl2 =
+and moregen_list ~with_expansion inst_nongen variance type_pairs env tl1 tl2 =
   if List.length tl1 <> List.length tl2 then
     raise_unexplained_for Moregen;
-  List.iter2 (moregen inst_nongen variance type_pairs env) tl1 tl2
+  List.iter2 (moregen ~with_expansion inst_nongen variance type_pairs env) tl1 tl2
 
-and moregen_param_list inst_nongen variance type_pairs env vl tl1 tl2 =
+and moregen_param_list ~with_expansion inst_nongen variance type_pairs env vl tl1 tl2 =
   match vl, tl1, tl2 with
   | [], [], [] -> ()
   | v :: vl, t1 :: tl1, t2 :: tl2 ->
     let param_variance = compose_variance variance v in
-    moregen inst_nongen param_variance type_pairs env t1 t2;
-    moregen_param_list inst_nongen variance type_pairs env vl tl1 tl2
+    moregen ~with_expansion inst_nongen param_variance type_pairs env t1 t2;
+    moregen_param_list ~with_expansion inst_nongen variance type_pairs env vl tl1 tl2
   | _, _, _ -> raise_unexplained_for Moregen
 
-and moregen_fields inst_nongen variance type_pairs env ty1 ty2 =
+and moregen_fields ~with_expansion inst_nongen variance type_pairs env ty1 ty2 =
   let (fields1, rest1) = flatten_fields ty1
   and (fields2, rest2) = flatten_fields ty2 in
   let (pairs, miss1, miss2) = associate_fields fields1 fields2 in
@@ -3931,13 +3931,13 @@ and moregen_fields inst_nongen variance type_pairs env ty1 ty2 =
     | (n, _, _) :: _ -> raise_for Moregen (Obj (Missing_field (Second, n)))
     | [] -> ()
   end;
-  moregen inst_nongen variance type_pairs env rest1
+  moregen ~with_expansion inst_nongen variance type_pairs env rest1
     (build_fields (get_level ty2) miss2 rest2);
   List.iter
     (fun (name, k1, t1, k2, t2) ->
        (* The below call should never throw [Public_method_to_private_method] *)
        moregen_kind k1 k2;
-       try moregen inst_nongen variance type_pairs env t1 t2 with Moregen_trace trace ->
+       try moregen ~with_expansion inst_nongen variance type_pairs env t1 t2 with Moregen_trace trace ->
          raise_trace_for Moregen
            (incompatible_fields ~name ~got:t1 ~expected:t2 :: trace)
     )
@@ -3950,7 +3950,7 @@ and moregen_kind k1 k2 =
   | (Fpublic, Fprivate)              -> raise Public_method_to_private_method
   | (Fabsent, _) | (_, Fabsent)      -> assert false
 
-and moregen_row inst_nongen variance type_pairs env row1 row2 =
+and moregen_row ~with_expansion inst_nongen variance type_pairs env row1 row2 =
   let Row {fields = row1_fields; more = rm1; closed = row1_closed} =
     row_repr row1 in
   let Row {fields = row2_fields; more = rm2; closed = row2_closed;
@@ -3991,7 +3991,7 @@ and moregen_row inst_nongen variance type_pairs env row1 row2 =
       (* This [link_type] has to be undone if the rest of the function fails *)
       link_type rm1 ext
   | Tconstr _, Tconstr _ ->
-      moregen inst_nongen variance type_pairs env rm1 rm2
+      moregen ~with_expansion inst_nongen variance type_pairs env rm1 rm2
   | _ -> raise_unexplained_for Moregen
   end;
   try
@@ -4002,7 +4002,7 @@ and moregen_row inst_nongen variance type_pairs env row1 row2 =
          (* Both matching [Rpresent]s *)
          | Rpresent(Some t1), Rpresent(Some t2) -> begin
              try
-               moregen inst_nongen variance type_pairs env t1 t2
+               moregen ~with_expansion inst_nongen variance type_pairs env t1 t2
              with Moregen_trace trace ->
                raise_trace_for Moregen
                  (Variant (Incompatible_types_for l) :: trace)
@@ -4017,11 +4017,11 @@ and moregen_row inst_nongen variance type_pairs env row1 row2 =
                    rf_either [] ~use_ext_of:f2 ~no_arg:c2 ~matched:m2 in
                  link_row_field_ext ~inside:f1 f2';
                  if List.length tl1 = List.length tl2 then
-                   List.iter2 (moregen inst_nongen variance type_pairs env) tl1 tl2
+                   List.iter2 (moregen ~with_expansion inst_nongen variance type_pairs env) tl1 tl2
                  else match tl2 with
                    | t2 :: _ ->
                      List.iter
-                       (fun t1 -> moregen inst_nongen variance type_pairs env t1 t2)
+                       (fun t1 -> moregen ~with_expansion inst_nongen variance type_pairs env t1 t2)
                        tl1
                    | [] -> if tl1 <> [] then raise_unexplained_for Moregen
                end
@@ -4034,7 +4034,7 @@ and moregen_row inst_nongen variance type_pairs env row1 row2 =
              try
                link_row_field_ext ~inside:f1 f2;
                List.iter
-                 (fun t1 -> moregen inst_nongen variance type_pairs env t1 t2)
+                 (fun t1 -> moregen ~with_expansion inst_nongen variance type_pairs env t1 t2)
                  tl1
              with Moregen_trace trace ->
                raise_trace_for Moregen
@@ -4066,6 +4066,12 @@ and moregen_row inst_nongen variance type_pairs env row1 row2 =
   with exn ->
     (* Undo [link_type] if we failed *)
     set_type_desc rm1 md1; raise exn
+
+let moregen inst_nongen variance type_pairs env t1 t2 =
+  match moregen ~with_expansion:false inst_nongen variance type_pairs env t1 t2  with
+  | x -> x
+  | exception _ ->
+    moregen ~with_expansion:true inst_nongen variance type_pairs env t1 t2
 
 (*
    Non-generic variable can be instantiated only if [inst_nongen] is
