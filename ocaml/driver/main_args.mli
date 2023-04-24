@@ -131,6 +131,8 @@ module type Compiler_options = sig
 
   val _args: string -> string array
   val _args0: string -> string array
+
+  val _experimental_linking : string -> unit
 end
 ;;
 

@@ -140,8 +140,8 @@ let create_archive archive file_list =
                                quoted_archive (quote_files file_list))
     | _ ->
         assert(String.length Config.ar > 0);
-        command(Printf.sprintf "%s Trc %s %s"
-                Config.ar quoted_archive (quote_files file_list))
+        command(Printf.sprintf "%s %src %s %s"
+                Config.ar (match !Clflags.Experimental_linking.arg with | Thin -> "T" | _ -> "") quoted_archive (quote_files file_list))
 
 let expand_libname cclibs =
   cclibs |> List.map (fun cclib ->

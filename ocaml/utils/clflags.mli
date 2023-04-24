@@ -18,6 +18,16 @@
 (** Command line flags *)
 
 (** Optimization parameters represented as ints indexed by round number. *)
+module Experimental_linking : sig
+  type t =
+    | Thin
+    | Dynamic
+    | Reloc
+    | Normal
+
+  val arg : t ref
+end
+
 module Int_arg_helper : sig
   type parsed
 

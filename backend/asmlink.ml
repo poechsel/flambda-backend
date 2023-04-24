@@ -248,7 +248,17 @@ let scan_file ~shared genfns file (objfiles, tolink) =
       check_cmx_consistency file_name infos.lib_imports_cmx;
       let objfiles =
         let obj_file =
-          Filename.chop_suffix file_name ".cmxa" ^ ext_lib in
+          let ext =
+            (match !Clflags.Experimental_linking.arg with
+                                                    | Reloc -> ".reloc.o"
+                                                    | Dynamic -> ".dyn.so"
+                                                    | _ -> ext_lib)
+          in
+          let ext =
+            if String.starts_with ~prefix:"/" file_name then ext_lib
+            else ext
+          in
+          Filename.chop_suffix file_name ".cmxa" ^ ext in
         (* MSVC doesn't support empty .lib files, and macOS struggles to
            make them (#6550), so there shouldn't be one if the .cmxa
            contains no units. The file_exists check is added to be

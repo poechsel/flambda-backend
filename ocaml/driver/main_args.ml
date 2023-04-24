@@ -239,6 +239,9 @@ let mk_inline_cost arg descr default f =
     descr
     default
 ;;
+let mk_experimental_linking f =
+  "-experimental-linking", Arg.String f, "<lib> Experimental linking"
+;;
 
 let mk_inline_call_cost =
   mk_inline_cost "call" "a call" Clflags.default_inline_call_cost
@@ -1086,6 +1089,7 @@ module type Compiler_options = sig
 
   val _args: string -> string array
   val _args0: string -> string array
+  val _experimental_linking : string -> unit
 end
 ;;
 
@@ -1338,6 +1342,7 @@ struct
     mk_dcamlprimc F._dcamlprimc;
     mk_dtimings F._dtimings;
     mk_dtimings_precision F._dtimings_precision;
+    mk_experimental_linking F._experimental_linking;
     mk_dprofile F._dprofile;
     mk_dump_into_file F._dump_into_file;
     mk_dump_dir F._dump_dir;
@@ -1574,6 +1579,7 @@ struct
     mk_dstartup F._dstartup;
     mk_dtimings F._dtimings;
     mk_dtimings_precision F._dtimings_precision;
+    mk_experimental_linking F._experimental_linking;
     mk_dprofile F._dprofile;
     mk_dump_into_file F._dump_into_file;
     mk_dump_dir F._dump_dir;
@@ -1963,6 +1969,11 @@ module Default = struct
     let _config_var = Misc.show_config_variable_and_exit
     let _dprofile () = profile_columns := Profile.all_columns
     let _dtimings () = profile_columns := [`Time]
+    let _experimental_linking = function
+    | "thin" -> Experimental_linking.(arg := Thin)
+    | "reloc" -> Experimental_linking.(arg := Reloc)
+    | "dynamic" -> Experimental_linking.(arg := Dynamic)
+    | _ -> Experimental_linking.(arg := Normal)
     let _dtimings_precision n = timings_precision := n
     let _dump_into_file = set dump_into_file
     let _dump_dir s = dump_dir := Some s

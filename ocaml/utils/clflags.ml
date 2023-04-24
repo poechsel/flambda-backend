@@ -14,7 +14,14 @@
 (**************************************************************************)
 
 (* Command-line parameters *)
-
+module Experimental_linking = struct
+  type t =
+    | Thin
+    | Dynamic
+    | Reloc
+    | Normal
+  let arg = ref Normal
+end
 module Int_arg_helper = Arg_helper.Make (struct
   module Key = struct
     include Numbers.Int
