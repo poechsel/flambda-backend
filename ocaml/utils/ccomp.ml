@@ -134,6 +134,11 @@ let create_archive archive file_list =
   if file_list = [] then
     0 (* Don't call the archiver: #6550/#1094/#9011 *)
   else
+    let file_list =
+      let o = Filename.temp_file "reloc" ".o"  in
+      let _r = command(Printf.sprintf "%s -r -o %s %s" Config.linker (Filename.quote o) (quote_files file_list)) in
+      [ o ]
+    in
     match Config.ccomp_type with
       "msvc" ->
         command(Printf.sprintf "link /lib /nologo /out:%s %s"

@@ -47,6 +47,7 @@ config.ml: config.mlp $(ROOTDIR)/Makefile.config Makefile
 	sed $(call SUBST,AFL_INSTRUMENT) \
 	    $(call SUBST,ARCH) \
 	    $(call SUBST_STRING,ARCMD) \
+	    $(call SUBST_STRING,LINKER) \
 	    $(call SUBST_STRING,ASM) \
 	    $(call SUBST,ASM_CFI_SUPPORTED) \
 	    $(call SUBST_STRING,BYTECCLIBS) \

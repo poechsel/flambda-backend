@@ -91,6 +91,9 @@ CPP=@CPP@
 ### How to invoke ar
 ARCMD=@AR@
 
+### How to invoke the linker
+LINKER=@LINKER@
+
 ### Extension of object files
 O=@OBJEXT@
 EXT_OBJ=.@OBJEXT@

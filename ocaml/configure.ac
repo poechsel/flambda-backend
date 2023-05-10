@@ -119,6 +119,7 @@ AC_SUBST([bootstrapping_flexdll])
 AC_SUBST([long_shebang])
 AC_SUBST([shebangscripts])
 AC_SUBST([AR])
+AC_SUBST([LINKER])
 AC_SUBST([mklib])
 AC_SUBST([supports_shared_libraries])
 AC_SUBST([natdynlink])
@@ -227,6 +228,7 @@ If your host is 64 bits, you can try with './configure CC="gcc -m64"' \
 AC_ARG_VAR([AS], [which assembler to use])
 AC_ARG_VAR([ASPP], [which assembler (with preprocessor) to use])
 AC_ARG_VAR([PARTIALLD], [how to build partial (relocatable) object files])
+AC_ARG_VAR([LINKER], [which linker to use])
 
 # Command-line arguments to configure
 

@@ -57,6 +57,7 @@ let native_pack_linker = "%%PACKLD%%"
 let default_rpath = "%%RPATH%%"
 let mksharedlibrpath = "%%MKSHAREDLIBRPATH%%"
 let ar = "%%ARCMD%%"
+let linker = "%%LINKER%%"
 let supports_shared_libraries = %%SUPPORTS_SHARED_LIBRARIES%%
 let mkdll, mkexe, mkmaindll =
   (* @@DRA Cygwin - but only if shared libraries are enabled, which we

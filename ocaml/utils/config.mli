@@ -93,6 +93,9 @@ val mksharedlibrpath: string
 val ar: string
 (** Name of the ar command, or "" if not needed  (MSVC) *)
 
+val linker: string
+(** Path to a linker *)
+
 val interface_suffix: string ref
 (** Suffix for interface file names *)
 
