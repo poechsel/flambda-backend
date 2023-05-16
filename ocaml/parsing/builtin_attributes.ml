@@ -529,6 +529,7 @@ let zero_alloc_attribute (attr : Parsetree.attribute)  =
         warn_payload attr.attr_loc attr.attr_name.txt
           "Only 'check' and 'all' are supported")
 
+
 let afl_inst_ratio_attribute attr =
   clflags_attribute_with_int_payload attr
     ~name:"afl_inst_ratio" Clflags.afl_inst_ratio

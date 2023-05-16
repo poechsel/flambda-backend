@@ -199,7 +199,7 @@ let call_linker mode output_name files extra =
           (quote_files files)
           extra
     in
-    command cmd
+    if !Clflags.skip_linker then 0 else command cmd
   )
 
 let linker_is_flexlink =

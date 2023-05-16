@@ -263,6 +263,8 @@ let register_allocator fd : register_allocator =
   | "" -> default_allocator
   | other -> Misc.fatal_errorf "unknown register allocator (%S)" other
 
+  module Profile = struct
+    let record ?accumulate:_ _ f a = f a end
 let compile_fundecl ~ppf_dump ~funcnames fd_cmm =
   Proc.init ();
   Reg.reset();

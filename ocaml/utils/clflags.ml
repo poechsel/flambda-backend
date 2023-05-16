@@ -635,3 +635,4 @@ let print_arguments program =
 
 let zero_alloc_check = ref false            (* -zero-alloc-check *)
 let zero_alloc_check_assert_all = ref false (* -zero-alloc-check-assert-all *)
+let skip_linker = ref false
