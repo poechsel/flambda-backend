@@ -156,7 +156,7 @@ let make_package_object unix ~ppf_dump members targetobj targetname coercion
         (fun m -> Filename.remove_extension m.pm_file ^ Config.ext_obj)
         (List.filter (fun m -> m.pm_kind <> PM_intf) members) in
     let exitcode =
-      Ccomp.call_linker Ccomp.Partial targetobj (objtemp :: objfiles) ""
+      Ccomp.call_linker Ccomp.Partial targetobj (List.map (fun s -> Ccomp.Artifact.O s) (objtemp :: objfiles)) ""
     in
     remove_file objtemp;
     if not (exitcode = 0) then raise(Error Linking_error)

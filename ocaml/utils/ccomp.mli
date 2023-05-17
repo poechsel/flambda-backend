@@ -20,6 +20,16 @@
 
 *)
 
+module Artifact : sig
+  type t =
+    | So of string
+    | A of string
+    | O of string
+    | CCobjs of string
+
+  val exists : t -> bool
+end
+
 val command: string -> int
 val run_command: string -> unit
 val compile_file:
@@ -35,6 +45,6 @@ type link_mode =
   | MainDll
   | Partial
 
-val call_linker: link_mode -> string -> string list -> string -> int
+val call_linker: link_mode -> string -> Artifact.t list -> string -> int
 
 val linker_is_flexlink : bool

@@ -603,7 +603,7 @@ let build_custom_runtime prim_name exec_name =
     (Clflags.std_include_flag "-I" ^ " " ^ Config.bytecomp_c_libraries)
   in
   Ccomp.call_linker Ccomp.Exe exec_name
-    (debug_prefix_map @ [prim_name] @ List.rev !Clflags.ccobjs @ [runtime_lib])
+    (List.map (fun s -> Ccomp.Artifact.CCobjs s) (debug_prefix_map @ [prim_name] @ List.rev !Clflags.ccobjs @ [runtime_lib]))
     exitcode = 0
 
 let append_bytecode bytecode_name exec_name =
@@ -740,7 +740,7 @@ let link objfiles output_name =
                    then ""
                    else "-lcamlrun" ^ !Clflags.runtime_variant in
                  Ccomp.call_linker mode output_name
-                   ([obj_file] @ List.rev !Clflags.ccobjs @ [runtime_lib])
+                   (List.map (fun s -> Ccomp.Artifact.CCobjs s) ([obj_file] @ List.rev !Clflags.ccobjs @ [runtime_lib]))
                    c_libs = 0
                ) then raise (Error Custom_runtime);
            end

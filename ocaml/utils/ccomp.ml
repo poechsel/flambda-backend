@@ -15,6 +15,34 @@
 
 (* Compiling C files and building C libraries *)
 
+module Artifact = struct
+  type t =
+    | So of string
+    | A of string
+    | O of string
+    | CCobjs of string
+
+  let exists = function
+    | So f -> Sys.file_exists f
+    | A f -> Sys.file_exists f
+    | O f -> Sys.file_exists f
+    | CCobjs f -> Sys.file_exists f
+
+  let to_string = function
+    | So f -> f
+    | A f -> f
+    | O f -> f
+    | CCobjs f -> f
+
+  let to_arg = function
+  | So f ->
+    let b, d = Filename.dirname f, Filename.basename f
+    in Load_path.add_dir b; `Arg ["-l:" ^ d]
+  | A f -> `Filename f
+  | O f -> `Filename f
+  | CCobjs f -> `Filename f
+end
+
 let command cmdline =
   if !Clflags.verbose then begin
     prerr_string "+ ";
@@ -168,10 +196,11 @@ let remove_Wl cclibs =
                  (String.sub cclib 4 (String.length cclib - 4))
     else cclib)
 
-let call_linker mode output_name files extra =
+let call_linker mode output_name artifacts extra =
   Profile.record_call "c-linker" (fun () ->
     let cmd =
       if mode = Partial then
+        let files = List.map Artifact.to_string artifacts in
         let (l_prefix, files) =
           match Config.ccomp_type with
           | "msvc" -> ("/libpath:", expand_libname files)
@@ -184,7 +213,11 @@ let call_linker mode output_name files extra =
           (quote_files (remove_Wl files))
           extra
       else
-        Printf.sprintf "%s -o %s %s %s %s %s %s"
+        let files, args =
+          List.map Artifact.to_arg artifacts
+          |> List.partition_map (function `Filename f -> Left f | `Arg a -> Right a)
+        in
+        Printf.sprintf "%s -o %s %s %s %s %s %s %s"
           (match !Clflags.c_compiler, mode with
           | Some cc, _ -> cc
           | None, Exe -> Config.mkexe
@@ -196,6 +229,7 @@ let call_linker mode output_name files extra =
           ""  (*(Clflags.std_include_flag "-I")*)
           (quote_prefixed "-L" (Load_path.get_paths ()))
           (String.concat " " (List.rev !Clflags.all_ccopts))
+          (String.concat " " (List.concat args))
           (quote_files files)
           extra
     in

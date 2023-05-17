@@ -144,7 +144,7 @@ let runtime_lib () =
   let libname = "libasmrun" ^ !Clflags.runtime_variant ^ ext_lib in
   try
     if !Clflags.nopervasives || not !Clflags.with_runtime then []
-    else [ Load_path.find libname ]
+    else [ Ccomp.Artifact.A (Load_path.find libname) ]
   with Not_found ->
     raise(Error(File_not_found libname))
 
@@ -209,7 +209,9 @@ let assume_no_prefix modname =
      no module needs its prefix considered. *)
   CU.create CU.Prefix.empty modname
 
-let scan_file ~shared genfns file (objfiles, tolink) =
+module Artifact = Ccomp.Artifact
+
+let scan_file ~favorize_so ~shared genfns file (objfiles, tolink) =
   match read_file file with
   | Unit (file_name,info,crc) ->
       (* This is a .cmx file. It must be linked in any case. *)
@@ -233,7 +235,7 @@ let scan_file ~shared genfns file (objfiles, tolink) =
           dynunit }
       in
       let object_file_name =
-        Filename.chop_suffix file_name ".cmx" ^ ext_obj in
+        Artifact.O (Filename.chop_suffix file_name ".cmx" ^ ext_obj) in
       check_consistency ~unit
         (Array.of_list info.ui_imports_cmi)
         (Array.of_list info.ui_imports_cmx);
@@ -248,13 +250,18 @@ let scan_file ~shared genfns file (objfiles, tolink) =
       check_cmx_consistency file_name infos.lib_imports_cmx;
       let objfiles =
         let obj_file =
-          Filename.chop_suffix file_name ".cmxa" ^ ext_lib in
+          let a = Filename.chop_suffix file_name ".cmxa" ^ ext_lib in
+          if favorize_so && not (String.ends_with ~suffix:".linkall" (Filename.chop_suffix file_name ".cmxa")) then
+            let f = Filename.chop_suffix file_name ".cmxa" ^ ".dyn.so" in
+            if Sys.file_exists f then Artifact.So f else Artifact.A a
+          else Artifact.A a
+        in
         (* MSVC doesn't support empty .lib files, and macOS struggles to
            make them (#6550), so there shouldn't be one if the .cmxa
            contains no units. The file_exists check is added to be
            ultra-defensive for the case where a user has manually added
            things to the .a/.lib file *)
-        if infos.lib_units = [] && not (Sys.file_exists obj_file)
+        if infos.lib_units = [] && not (Artifact.exists obj_file)
         then objfiles
         else obj_file :: objfiles
       in
@@ -420,10 +427,10 @@ let link_shared unix ~ppf_dump objfiles output_name =
       Emitaux.binary_backend_available := false;
     let genfns = Cmm_helpers.Generic_fns_tbl.make () in
     let ml_objfiles, units_tolink =
-      List.fold_right (scan_file ~shared:true genfns) objfiles ([],[]) in
+      List.fold_right (scan_file ~favorize_so:false ~shared:true genfns) objfiles ([],[]) in
     Clflags.ccobjs := !Clflags.ccobjs @ !lib_ccobjs;
     Clflags.all_ccopts := !lib_ccopts @ !Clflags.all_ccopts;
-    let objfiles = List.rev ml_objfiles @ List.rev !Clflags.ccobjs in
+    let objfiles = List.rev ml_objfiles @ (List.map (fun f -> Artifact.CCobjs f) (List.rev !Clflags.ccobjs)) in
     let named_startup_file = named_startup_file () in
     let startup =
       if named_startup_file
@@ -440,7 +447,7 @@ let link_shared unix ~ppf_dump objfiles output_name =
          make_shared_startup_file unix ~ppf_dump ~sourcefile_for_dwarf
            genfns units_tolink
       );
-    call_linker_shared (startup_obj :: objfiles) output_name;
+    call_linker_shared ((Artifact.O startup_obj) :: objfiles) output_name;
     if !Flambda_backend_flags.internal_assembler then
       (* CR gyorsh: restore after workaround. *)
       Emitaux.binary_backend_available := true;
@@ -452,10 +459,10 @@ let call_linker file_list_rev startup_file output_name =
                  && Filename.check_suffix output_name Config.ext_dll
   and main_obj_runtime = !Clflags.output_complete_object
   in
-  let files = startup_file :: (List.rev file_list_rev) in
+  let files = Artifact.O startup_file :: (List.rev file_list_rev) in
   let files, c_lib =
     if (not !Clflags.output_c_object) || main_dll || main_obj_runtime then
-      files @ (List.rev !Clflags.ccobjs) @ runtime_lib (),
+      files @ (List.rev_map (fun s -> Artifact.CCobjs s) !Clflags.ccobjs) @ runtime_lib (),
       (if !Clflags.nopervasives || (main_obj_runtime && not main_dll)
        then "" else Config.native_c_libraries)
     else
@@ -492,7 +499,7 @@ let link unix ~ppf_dump objfiles output_name =
       else stdlib :: (objfiles @ [stdexit]) in
     let genfns = Cmm_helpers.Generic_fns_tbl.make () in
     let ml_objfiles, units_tolink =
-      List.fold_right (scan_file ~shared:false genfns) objfiles ([],[]) in
+      List.fold_right (scan_file ~favorize_so:!Clflags.link_using_shared_libraries ~shared:false genfns) objfiles ([],[]) in
     begin match extract_missing_globals() with
       [] -> ()
     | mg -> raise(Error(Missing_implementations mg))
