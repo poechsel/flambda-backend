@@ -353,16 +353,21 @@ let make_startup_file unix ~ppf_dump ~sourcefile_for_dwarf genfns units =
   let compile_phrase p = Asmgen.compile_phrase ~ppf_dump p in
   let name_list =
     List.flatten (List.map (fun u -> u.defines) units) in
-  compile_phrase (Cmm_helpers.entry_point name_list);
+  Profile.record_call "entrypoint" (fun () ->
+    compile_phrase (Cmm_helpers.entry_point name_list));
+  Profile.record_call "genfns" (fun () ->
   List.iter compile_phrase
     (Cmm_helpers.emit_preallocated_blocks []
-      (Cmm_helpers.generic_functions false genfns));
+      (Cmm_helpers.generic_functions false genfns)));
+  Profile.record_call "exceptions" (fun () ->
   Array.iteri
     (fun i name -> compile_phrase (Cmm_helpers.predef_exception i name))
-    Runtimedef.builtin_exceptions;
-  compile_phrase (Cmm_helpers.global_table name_list);
-  let globals_map = make_globals_map units in
-  compile_phrase (Cmm_helpers.globals_map globals_map);
+    Runtimedef.builtin_exceptions);
+  Profile.record_call "namelist" (fun () ->
+  compile_phrase (Cmm_helpers.global_table name_list));
+  Profile.record_call "globals_map" (fun () ->
+    let globals_map = make_globals_map units in
+    compile_phrase (Cmm_helpers.globals_map globals_map));
   compile_phrase
     (Cmm_helpers.data_segment_table (startup_comp_unit :: name_list));
   (* CR mshinwell: We should have a separate notion of "backend compilation
@@ -379,7 +384,8 @@ let make_startup_file unix ~ppf_dump ~sourcefile_for_dwarf genfns units =
   in
   compile_phrase (Cmm_helpers.code_segment_table code_comp_units);
   let all_comp_units = startup_comp_unit :: system_comp_unit :: name_list in
-  compile_phrase (Cmm_helpers.frame_table all_comp_units);
+  Profile.record_call "frametable" (fun () ->
+  compile_phrase (Cmm_helpers.frame_table all_comp_units));
   if !Clflags.output_complete_object then
     force_linking_of_startup ~ppf_dump;
   Emit.end_assembly ()
@@ -492,7 +498,9 @@ let link unix ~ppf_dump objfiles output_name =
       else stdlib :: (objfiles @ [stdexit]) in
     let genfns = Cmm_helpers.Generic_fns_tbl.make () in
     let ml_objfiles, units_tolink =
-      List.fold_right (scan_file ~shared:false genfns) objfiles ([],[]) in
+      Profile.record_call "scan_files" (fun () ->
+        List.fold_right (scan_file ~shared:false genfns) objfiles ([],[]))
+    in
     begin match extract_missing_globals() with
       [] -> ()
     | mg -> raise(Error(Missing_implementations mg))
@@ -507,16 +515,18 @@ let link unix ~ppf_dump objfiles output_name =
       else Filename.temp_file "camlstartup" ext_asm in
     let sourcefile_for_dwarf = sourcefile_for_dwarf ~named_startup_file startup in
     let startup_obj = Filename.temp_file "camlstartup" ext_obj in
-    Asmgen.compile_unit ~output_prefix:output_name
-      ~asm_filename:startup ~keep_asm:!Clflags.keep_startup_file
-      ~obj_filename:startup_obj
-      ~may_reduce_heap:true
-      ~ppf_dump
-      (fun () -> make_startup_file unix ~ppf_dump
-                   ~sourcefile_for_dwarf genfns units_tolink);
+    Profile.record_call "compile_unit" (fun () ->
+      Asmgen.compile_unit ~output_prefix:output_name
+        ~asm_filename:startup ~keep_asm:!Clflags.keep_startup_file
+        ~obj_filename:startup_obj
+        ~may_reduce_heap:true
+        ~ppf_dump
+        (fun () -> make_startup_file unix ~ppf_dump
+                    ~sourcefile_for_dwarf genfns units_tolink)
+    );
     Emitaux.reduce_heap_size ~reset:(fun () -> reset ());
     Misc.try_finally
-      (fun () -> call_linker ml_objfiles startup_obj output_name)
+      (fun () -> Profile.record_call "ld" (fun () -> call_linker ml_objfiles startup_obj output_name))
       ~always:(fun () -> remove_file startup_obj)
   )
 
