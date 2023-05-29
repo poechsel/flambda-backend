@@ -580,7 +580,7 @@ let link unix ~ppf_dump objfiles output_name =
     );
     Emitaux.reduce_heap_size ~reset:(fun () -> reset ());
     Misc.try_finally
-      (fun () -> Profile.record_call "ld" (fun () -> call_linker ml_objfiles startup_obj output_name))
+      (fun () -> if Option.is_none !Clflags.use_cached_startup  then Profile.record_call "ld" (fun () -> call_linker ml_objfiles startup_obj output_name)  else ())
       ~always:(fun () -> remove_file startup_obj)
   )
 
