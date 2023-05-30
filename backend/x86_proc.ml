@@ -324,7 +324,7 @@ let compile infile outfile =
 let assemble_file infile outfile =
   match !binary_content with
   | None -> compile infile outfile
-  | Some content -> content outfile; binary_content := None; 0
+  | Some content -> Profile.record ~accumulate:true "call instrs" content outfile; binary_content := None; 0
 
 let asm_code = ref []
 let asm_code_current_section = ref (ref [])
@@ -357,9 +357,9 @@ let generate_code asm =
   end;
   begin match !internal_assembler with
     | Some f ->
-      let instrs = Section_name.Tbl.fold (fun name instrs acc ->
+      let instrs = Profile.record_call ~accumulate:true "create instrs"  (fun () -> Section_name.Tbl.fold (fun name instrs acc ->
           (name, List.rev !instrs) :: acc)
-          asm_code_by_section []
+          asm_code_by_section [])
       in
       binary_content := Some (f instrs)
   | None -> binary_content := None

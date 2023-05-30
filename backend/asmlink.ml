@@ -346,13 +346,16 @@ let make_startup_file unix ~ppf_dump ~sourcefile_for_dwarf genfns units =
   let startup_comp_unit =
     CU.create CU.Prefix.empty (CU.Name.of_string "_startup")
   in
-  Compilenv.reset startup_comp_unit;
+  Profile.record_call "reset" (fun () ->
+    Compilenv.reset startup_comp_unit);
   Emitaux.Dwarf_helpers.init ~disable_dwarf:(not !Dwarf_flags.dwarf_for_startup_file)
     sourcefile_for_dwarf;
-  Emit.begin_assembly unix;
+  Profile.record_call "begin_assembly" (fun () ->
+    Emit.begin_assembly unix);
   let compile_phrase p = Asmgen.compile_phrase ~ppf_dump p in
   let name_list =
-      List.flatten (List.map (fun u -> u.defines) units) in
+    Profile.record_call "flatten" (fun () ->
+      List.flatten (List.map (fun u -> u.defines) units)) in
       Profile.record_call "entrypoint" (fun () ->
         let phrases = Cmm_helpers.entry_point name_list in
         List.iter compile_phrase phrases);
@@ -361,11 +364,11 @@ let make_startup_file unix ~ppf_dump ~sourcefile_for_dwarf genfns units =
     (Cmm_helpers.emit_preallocated_blocks []
       (Cmm_helpers.generic_functions false genfns)));
   Profile.record_call "exceptions" (fun () ->
-  Array.iteri
-    (fun i name -> compile_phrase (Cmm_helpers.predef_exception i name))
-    Runtimedef.builtin_exceptions);
+    Array.iteri
+      (fun i name -> compile_phrase (Cmm_helpers.predef_exception i name))
+      Runtimedef.builtin_exceptions);
   Profile.record_call "namelist" (fun () ->
-  compile_phrase (Cmm_helpers.global_table name_list));
+   compile_phrase (Cmm_helpers.global_table name_list));
   Profile.record_call "globals_map" (fun () ->
     let globals_map = make_globals_map units in
     compile_phrase (Cmm_helpers.globals_map globals_map));
@@ -374,8 +377,9 @@ let make_startup_file unix ~ppf_dump ~sourcefile_for_dwarf genfns units =
       CU.create CU.Prefix.empty (CU.Name.of_string "_cached_startup") :: name_list
     else name_list
   in
-  compile_phrase
-    (Cmm_helpers.data_segment_table (startup_comp_unit :: name_list));
+  Profile.record_call "data segment tables" (fun () ->
+    compile_phrase
+      (Cmm_helpers.data_segment_table (startup_comp_unit :: name_list)));
   (* CR mshinwell: We should have a separate notion of "backend compilation
      unit" really, since the units here don't correspond to .ml source
      files. *)
@@ -388,13 +392,15 @@ let make_startup_file unix ~ppf_dump ~sourcefile_for_dwarf genfns units =
     else
       startup_comp_unit :: name_list
   in
-  compile_phrase (Cmm_helpers.code_segment_table code_comp_units);
+  Profile.record_call "code_Segment_table" (fun () ->
+    compile_phrase (Cmm_helpers.code_segment_table code_comp_units));
   let all_comp_units = startup_comp_unit :: system_comp_unit :: name_list in
   Profile.record_call "frametable" (fun () ->
-  compile_phrase (Cmm_helpers.frame_table all_comp_units));
+    compile_phrase (Cmm_helpers.frame_table all_comp_units));
   if !Clflags.output_complete_object then
     force_linking_of_startup ~ppf_dump;
-  Emit.end_assembly ()
+  Profile.record_call "end_assembly" (fun () ->
+    Emit.end_assembly ())
 
 let make_shared_startup_file unix ~ppf_dump ~sourcefile_for_dwarf genfns units =
   let compile_phrase p = Asmgen.compile_phrase ~ppf_dump p in
@@ -580,7 +586,7 @@ let link unix ~ppf_dump objfiles output_name =
     );
     Emitaux.reduce_heap_size ~reset:(fun () -> reset ());
     Misc.try_finally
-      (fun () -> if Option.is_none !Clflags.use_cached_startup  then Profile.record_call "ld" (fun () -> call_linker ml_objfiles startup_obj output_name)  else ())
+      (fun () -> ( call_linker ml_objfiles startup_obj output_name)  )
       ~always:(fun () -> remove_file startup_obj)
   )
 
