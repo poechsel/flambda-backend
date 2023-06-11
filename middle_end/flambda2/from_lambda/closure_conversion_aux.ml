@@ -161,7 +161,10 @@ module Env = struct
       value_approximations = Variable.Map.empty;
       big_endian;
       path_to_root = Debuginfo.Scoped_location.Loc_unknown;
-      inlining_history_tracker = Inlining_history.Tracker.empty current_unit;
+      inlining_history_tracker =
+        Inlining_history.Tracker.empty
+          ~source_file:(Some (Location.absolute_path !Location.input_name))
+          current_unit;
       at_toplevel = true
     }
 

@@ -11,7 +11,7 @@
 (**************************************************************************)
 
 module Absolute = struct
-  type t = Compilation_unit.t * path
+  type t = Compilation_unit.t * string option * path
 
   and path =
     | Empty
@@ -36,11 +36,13 @@ module Absolute = struct
         }
     | Inline of { prev : path }
 
-  let empty compilation_unit = compilation_unit, Empty
+  let empty ~source_file compilation_unit = compilation_unit, source_file, Empty
 
-  let compilation_unit (f, _) = f
+  let compilation_unit (f, _, _) = f
 
-  let path (_, p) = p
+  let source_file (_, f, _) = f
+
+  let path (_, _, p) = p
 
   let uid_path h = Marshal.to_bytes h [] |> Digest.bytes |> Digest.to_hex
 
@@ -57,7 +59,7 @@ module Absolute = struct
     in
     aux ppf t
 
-  and print ppf (compilation_unit, t) =
+  and print ppf (compilation_unit, _, t) =
     Format.fprintf ppf "%a::%a" Compilation_unit.print_name compilation_unit
       print_path t
 
@@ -98,30 +100,34 @@ module Absolute = struct
     | Inline p1, Inline p2 -> compare_path p1.prev p2.prev
     | p1, p2 -> Int.compare (tag_path p1) (tag_path p2)
 
-  and compare (compilation_unit1, t1) (compilation_unit2, t2) =
+  and compare (compilation_unit1, s1, t1) (compilation_unit2, s2, t2) =
     let c = Compilation_unit.compare compilation_unit1 compilation_unit2 in
-    if c <> 0 then c else compare_path t1 t2
+    if c <> 0
+    then c
+    else
+      let c = compare_path t1 t2 in
+      if c <> 0 then c else Option.compare String.compare s1 s2
 
   let to_string t =
     print Format.str_formatter t;
     Format.flush_str_formatter ()
 
-  let rec shorten_to_definition (compilation_unit, absolute) =
+  let rec shorten_to_definition (compilation_unit, path, absolute) =
     let rec aux t =
       match t with
-      | Empty -> compilation_unit, Empty
+      | Empty -> compilation_unit, path, Empty
       | Unknown { prev } ->
-        let f, prev = aux prev in
-        f, Unknown { prev }
+        let f, path, prev = aux prev in
+        f, path, Unknown { prev }
       | Function { name; prev; dbg } ->
-        let f, prev = aux prev in
-        f, Function { name; prev; dbg }
+        let f, path, prev = aux prev in
+        f, path, Function { name; prev; dbg }
       | Class { name; prev } ->
-        let f, prev = aux prev in
-        f, Class { name; prev }
+        let f, path, prev = aux prev in
+        f, path, Class { name; prev }
       | Module { name; prev } ->
-        let f, prev = aux prev in
-        f, Module { name; prev }
+        let f, path, prev = aux prev in
+        f, path, Module { name; prev }
       | Call { callee; _ } -> shorten_to_definition callee
       | Inline { prev } -> aux prev
     in
@@ -196,7 +202,7 @@ module Relative = struct
     aux ~parent ~child
 end
 
-let extend_absolute (compilation_unit, absolute) relative =
+let extend_absolute (compilation_unit, path, absolute) relative =
   let rec aux (r : Relative.t) : Absolute.path =
     match r with
     | Absolute.Empty -> absolute
@@ -207,7 +213,7 @@ let extend_absolute (compilation_unit, absolute) relative =
     | Call { callee; prev; dbg } -> Call { callee; prev = aux prev; dbg }
     | Inline { prev } -> Inline { prev = aux prev }
   in
-  compilation_unit, aux relative
+  compilation_unit, path, aux relative
 
 module Tracker = struct
   type t =
@@ -215,8 +221,10 @@ module Tracker = struct
       relative : Relative.t
     }
 
-  let empty compilation_unit =
-    { absolute = Absolute.empty compilation_unit; relative = Relative.empty }
+  let empty ~source_file compilation_unit =
+    { absolute = Absolute.empty ~source_file compilation_unit;
+      relative = Relative.empty
+    }
 
   let inside_function absolute = { absolute; relative = Relative.empty }
 
@@ -248,7 +256,9 @@ module Tracker = struct
   let unknown_call ~dbg ~relative { absolute; _ } =
     extend_absolute absolute
       (Relative.call ~dbg
-         ~callee:(Absolute.empty (Compilation_unit.get_current_exn ()))
+         ~callee:
+           (Absolute.empty ~source_file:None
+              (Compilation_unit.get_current_exn ()))
          relative)
 
   let call ~dbg ~callee ~relative { absolute; _ } =

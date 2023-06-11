@@ -885,7 +885,7 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
             ~poll_attribute:Default ~dbg:Debuginfo.none ~is_tupled
             ~is_my_closure_used ~inlining_decision:Never_inline_attribute
             ~absolute_history:
-              (Inlining_history.Absolute.empty
+              (Inlining_history.Absolute.empty ~source_file:None
                  (Compilation_unit.get_current_exn ()))
             ~relative_history:Inlining_history.Relative.empty ~loopify
         in

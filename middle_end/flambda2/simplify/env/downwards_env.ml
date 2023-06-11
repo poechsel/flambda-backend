@@ -123,7 +123,9 @@ let create ~round ~(resolver : resolver)
     all_code = Code_id.Map.empty;
     get_imported_code;
     inlining_history_tracker =
-      Inlining_history.Tracker.empty (Compilation_unit.get_current_exn ());
+      Inlining_history.Tracker.empty
+        ~source_file:(Some (Location.absolute_path !Location.input_name))
+        (Compilation_unit.get_current_exn ());
     loopify_state = Loopify_state.do_not_loopify
   }
 

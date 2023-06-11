@@ -74,7 +74,7 @@ module Absolute : sig
         }
     | Inline of { prev : path }
 
-  val empty : Compilation_unit.t -> t
+  val empty : source_file:string option -> Compilation_unit.t -> t
 
   val print : Format.formatter -> t -> unit
 
@@ -83,6 +83,8 @@ module Absolute : sig
   val uid_path : path -> string
 
   val compilation_unit : t -> Compilation_unit.t
+
+  val source_file : t -> string option
 
   val path : t -> path
 
@@ -116,7 +118,7 @@ end
 module Tracker : sig
   type t
 
-  val empty : Compilation_unit.t -> t
+  val empty : source_file:string option -> Compilation_unit.t -> t
 
   val absolute : t -> Absolute.t
 

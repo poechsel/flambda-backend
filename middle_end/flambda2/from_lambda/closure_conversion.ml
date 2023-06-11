@@ -47,6 +47,8 @@ type close_functions_result =
   | Lifted of (Symbol.t * Env.value_approximation) Function_slot.Lmap.t
   | Dynamic of Set_of_closures.t * Env.value_approximation Function_slot.Map.t
 
+let source_file = ref None
+
 let declare_symbol_for_function_slot env ident function_slot : Env.t * Symbol.t
     =
   let symbol =
@@ -245,7 +247,8 @@ module Inlining = struct
       then (
         Inlining_report.record_decision_at_call_site_for_known_function ~tracker
           ~apply ~pass:After_closure_conversion ~unrolling_depth:None
-          ~callee:(Inlining_history.Absolute.empty compilation_unit)
+          ~callee:
+            (Inlining_history.Absolute.empty ~source_file:None compilation_unit)
           ~are_rebuilding_terms Definition_says_not_to_inline;
         Not_inlinable)
       else
@@ -1682,7 +1685,9 @@ let close_functions acc external_env ~current_region function_declarations =
             ~inlining_arguments:(Inlining_arguments.create ~round:0)
             ~dbg ~is_tupled ~is_my_closure_used:true
             ~inlining_decision:Recursive
-            ~absolute_history:(Inlining_history.Absolute.empty compilation_unit)
+            ~absolute_history:
+              (Inlining_history.Absolute.empty ~source_file:!source_file
+                 compilation_unit)
             ~relative_history:Inlining_history.Relative.empty
             ~loopify:Never_loopify
         in
@@ -2460,6 +2465,7 @@ let close_program (type mode) ~(mode : mode Flambda_features.mode) ~big_endian
     ~cmx_loader ~compilation_unit ~module_block_size_in_words ~program
     ~prog_return_cont ~exn_continuation ~toplevel_my_region :
     mode close_program_result =
+  source_file := Some (Location.absolute_path !Location.input_name);
   let env = Env.create ~big_endian in
   let module_symbol =
     Symbol.create_wrapped
