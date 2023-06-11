@@ -201,7 +201,39 @@ let simplify_direct_full_application ~simplify_expr dacc apply function_type
       Inline (dacc, inlined)
   in
   match inlined with
-  | Inline (dacc, inlined) -> simplify_expr dacc inlined ~down_to_up
+  | Inline (dacc, inlined) ->
+    let down_to_up dacc ~rebuild:rebuild_body =
+      let rebuild uacc ~after_rebuild =
+        let after_rebuild body uacc =
+          let bound_vars =
+            Bound_pattern.singleton
+              (VB.create (Variable.create "inlined_dbg") Name_mode.normal)
+          in
+          let defining_expr =
+            Named.create_prim
+              (Nullary (Enter_inlined_apply { dbg = Apply_expr.dbg apply }))
+              Debuginfo.none
+          in
+          let bindings =
+            [ { EB.let_bound = bound_vars;
+                simplified_defining_expr = Simplified_named.create defining_expr;
+                original_defining_expr = None
+              } ]
+          in
+          let body, uacc =
+            EB.make_new_let_bindings uacc ~bindings_outermost_first:bindings
+              ~body
+          in
+          after_rebuild body uacc
+        in
+        rebuild_body uacc ~after_rebuild
+      in
+      down_to_up dacc ~rebuild
+    in
+    simplify_expr dacc inlined ~down_to_up
+  (* down_to_up dacc ~rebuild:(fun uacc ~after_rebuild -> let uacc =
+     UA.notify_removed ~operation:Removed_operations.call uacc in
+     EB.rebuild_invalid uacc (Closure_type_was_invalid apply) ~after_rebuild) *)
   | Do_not_inline { erase_attribute } -> (
     let apply =
       let inlined : Inlined_attribute.t =
