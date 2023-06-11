@@ -268,6 +268,7 @@ module Decision_with_context = struct
   type decision =
     | Call of Call_site_inlining_decision_type.t
     | Fundecl of Function_decl_inlining_decision_type.t
+    | Unknown_call
 
   type t =
     { context : Context.t;
@@ -277,6 +278,7 @@ module Decision_with_context = struct
   let print_decision ppf = function
     | Call c -> Call_site_inlining_decision_type.report ppf c
     | Fundecl c -> Function_decl_inlining_decision_type.report ppf c
+    | Unknown_call -> Format.fprintf ppf "No decision as the call was unknown"
 
   let print ppf { context; decision } =
     Format.fprintf ppf "@[<v 2>";
@@ -287,7 +289,7 @@ end
 type raw_decision =
   { path : IHA.t;
     dbg : Debuginfo.t;
-    decision_with_context : Decision_with_context.t option
+    decision_with_context : Decision_with_context.t
   }
 
 (* Record all raw decisions inside a list. Decisions are appended as they are
@@ -313,25 +315,37 @@ let record_decision_at_call_site_for_known_function ~tracker ~unrolling_depth
         ~unrolling_depth ~are_rebuilding_terms ~pass ()
     in
     log
-      := { decision_with_context = Some { decision = Call decision; context };
+      := { decision_with_context = { decision = Call decision; context };
            path;
            dbg
          }
          :: !log
   else ()
 
-let record_decision_at_call_site_for_unknown_function ~tracker ~apply ~pass:_ ()
-    =
+let record_decision_at_call_site_for_unknown_function ~tracker ~apply ~pass
+    ~are_rebuilding_terms () =
   if Flambda_features.inlining_report ()
      || Flambda_features.inlining_report_bin ()
   then
     let dbg = Apply_expr.dbg apply in
+    let state = Apply_expr.inlining_state apply in
+    let context =
+      Context.create
+        ~depth:(Inlining_state.depth state)
+        ~args:(Inlining_state.arguments state)
+        ~unrolling_depth:None ~are_rebuilding_terms ~pass ()
+    in
     let path =
       Inlining_history.Tracker.unknown_call ~dbg
         ~relative:(Apply_expr.relative_history apply)
         tracker
     in
-    log := { decision_with_context = None; path; dbg } :: !log
+    log
+      := { decision_with_context = { decision = Unknown_call; context };
+           path;
+           dbg
+         }
+         :: !log
   else ()
 
 let record_decision_at_function_definition ~absolute_history ~code_metadata
@@ -346,7 +360,7 @@ let record_decision_at_function_definition ~absolute_history ~code_metadata
       Context.create ~args ~cost_metrics ~are_rebuilding_terms ~pass ()
     in
     log
-      := { decision_with_context = Some { decision = Fundecl decision; context };
+      := { decision_with_context = { decision = Fundecl decision; context };
            path = absolute_history;
            dbg
          }
@@ -552,11 +566,7 @@ module Inlining_tree = struct
       | Call { callee; prev; _ } ->
         insert_or_update_descendant
           ~apply_to_child:(fun m ->
-            let decision =
-              match decision_with_context with
-              | Some decision -> Decision decision
-              | None -> Unavailable
-            in
+            let decision = Decision decision_with_context in
             insert_or_update_call ~decision ~dbg ~callee
               ~apply_to_child:(fun x -> x)
               m)
@@ -564,7 +574,7 @@ module Inlining_tree = struct
       | Function { name; prev; _ } ->
         insert_or_update_descendant
           ~apply_to_child:
-            (insert_or_update_fundecl ?decision_with_context ~dbg ~name
+            (insert_or_update_fundecl ~decision_with_context ~dbg ~name
                ~apply_to_child:(fun x -> x))
           prev
       | Module _ | Class _ | Inline _ | Empty ->

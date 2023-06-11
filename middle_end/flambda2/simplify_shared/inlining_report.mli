@@ -41,6 +41,7 @@ module Decision_with_context : sig
   type decision =
     | Call of Call_site_inlining_decision_type.t
     | Fundecl of Function_decl_inlining_decision_type.t
+    | Unknown_call
 
   type t =
     { context : Context.t;
@@ -115,6 +116,7 @@ val record_decision_at_call_site_for_unknown_function :
   tracker:Inlining_history.Tracker.t ->
   apply:Apply_expr.t ->
   pass:Pass.t ->
+  are_rebuilding_terms:Are_rebuilding_terms.t ->
   unit ->
   unit
 
