@@ -171,7 +171,7 @@ let report_reason fmt t =
       Cost_metrics.print cost_metrics evaluated_to threshold
 
 let report fmt t =
-  Format.fprintf fmt
-    "@[<v>The function call %s been inlined@ because @[<hov>%a@]@]"
-    (match can_inline t with Inline _ -> "has" | Do_not_inline _ -> "has not")
-    report_reason t
+  Format.fprintf fmt "@[<v>%s@]"
+    (match can_inline t with
+    | Inline _ -> "inlined"
+    | Do_not_inline _ -> "not inlined")

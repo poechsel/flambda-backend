@@ -122,13 +122,11 @@ let behaviour t =
   | Functor _ | Speculatively_inlinable _ -> Could_possibly_be_inlined
 
 let report fmt t =
-  Format.fprintf fmt
-    "@[<v>The function %s be inlined at its use-sites@ because @[<hov>%a@]@]"
+  Format.fprintf fmt "@[<v>%s@]"
     (match behaviour t with
-    | Cannot_be_inlined -> "cannot"
-    | Could_possibly_be_inlined -> "could"
-    | Must_be_inlined -> "must")
-    report_decision t
+    | Cannot_be_inlined -> "cannot be inlined"
+    | Could_possibly_be_inlined -> "could not be inlined"
+    | Must_be_inlined -> "must be inlined")
 
 let must_be_inlined t =
   match behaviour t with

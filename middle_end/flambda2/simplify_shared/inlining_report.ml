@@ -279,12 +279,9 @@ module Decision_with_context = struct
     | Fundecl c -> Function_decl_inlining_decision_type.report ppf c
 
   let print ppf { context; decision } =
-    Format.fprintf ppf "@[<v>@[<h>Decision@ taken@ *%a*@]@," Pass.print
-      context.pass;
-    Format.fprintf ppf "@[<v 2>@,";
-    Format.fprintf ppf "%a@,@[<h>%a@]@," Context.print context print_decision
-      decision;
-    Format.fprintf ppf "@]@]"
+    Format.fprintf ppf "@[<v 2>";
+    Format.fprintf ppf "%a" print_decision decision;
+    Format.fprintf ppf "@]"
 end
 
 type raw_decision =
@@ -586,11 +583,11 @@ module Inlining_tree = struct
       then ()
       else Format.fprintf ppf "@ at@ %a" Debuginfo.print_compact dbg
     in
-    Format.fprintf ppf "@[<h>%a@ %s@ %a%a%a@]@,@," stars depth label f w
-      print_dbg dbg print_uid uid
+    Format.fprintf ppf "@[<h>%a@ %s@ %a%a%a@]@," stars depth label f w print_dbg
+      dbg print_uid uid
 
   let print_decision_with_context ppf decision_with_context =
-    Format.fprintf ppf "@[%a@]@," Decision_with_context.print
+    Format.fprintf ppf "@[<h>%a@]@," Decision_with_context.print
       decision_with_context
 
   let print_decisions ppf decisions =
@@ -648,23 +645,20 @@ module Inlining_tree = struct
           print_title ppf ?uid:None ~dbg ~depth ~label:"Application of"
             ~f:IHA.print callee;
           Format.fprintf ppf "@[<v>";
-          Format.fprintf ppf "@[<hov>Defined@ %a@]@,@,"
-            (Uid.print_link_hum ~compilation_unit)
-            (Uid.create ~compilation_unit (IHA.path callee));
           (match decision with
           | Decision decision_with_context ->
             Format.fprintf ppf "@[<v>%a@]" print_decision_with_context
               decision_with_context
           | Reference path -> print_reference ~compilation_unit ppf path
           | Unavailable -> print_unavailable ppf ());
-          Format.fprintf ppf "@]@,@,";
+          Format.fprintf ppf "@]@,";
           print ppf ~compilation_unit ~depth:(depth + 1)
             ~path:(IHA.Inline { prev = path })
             tree
         | Fundecl fundecl, Fundecl { decisions; body } ->
           print_title ppf ~uid ~dbg ~depth ~label:"Definition of"
             ~f:Format.pp_print_text fundecl;
-          Format.fprintf ppf "@[<v>%a@]@,@," print_decisions decisions;
+          Format.fprintf ppf "@[<v>%a@]@," print_decisions decisions;
           print ppf ~compilation_unit ~depth:(depth + 1) ~path body
         | Scope _, (Call _ | Fundecl _)
         | Call _, Scope _
