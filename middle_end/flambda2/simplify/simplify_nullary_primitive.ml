@@ -43,7 +43,8 @@ let simplify_nullary_primitive dacc original_prim (prim : P.nullary_primitive)
   | Enter_inlined_apply { dbg } ->
     let dacc =
       DA.map_denv dacc ~f:(fun denv ->
-          DE.set_inlined_debuginfo denv (DE.add_inlined_debuginfo denv dbg))
+          DE.set_inlined_debuginfo denv (DE.add_inlined_debuginfo denv dbg);
+          Inlining_report.record_decision_at_call_site_for_known_function)
     in
     let named = Named.create_simple Simple.const_unit in
     let ty = T.this_tagged_immediate Targetint_31_63.zero in

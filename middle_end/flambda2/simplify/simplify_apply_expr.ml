@@ -175,6 +175,8 @@ type inlining_decision =
 let simplify_direct_full_application ~simplify_expr dacc apply function_type
     ~params_arity ~result_arity ~(result_types : _ Or_unknown_or_bottom.t)
     ~down_to_up ~coming_from_indirect ~callee's_code_metadata =
+  let callee = Code_metadata.absolute_history callee's_code_metadata in
+  let tracker = DE.inlining_history_tracker (DA.denv dacc) in
   let inlined =
     let decision =
       Call_site_inlining_decision.make_decision dacc ~simplify_expr ~apply
@@ -185,9 +187,8 @@ let simplify_direct_full_application ~simplify_expr dacc apply function_type
         (Call_site_inlining_decision.get_rec_info dacc ~function_type)
     in
     Inlining_report.record_decision_at_call_site_for_known_function
-      ~pass:Inlining_report.Pass.Before_simplify ~unrolling_depth
-      ~callee:(Code_metadata.absolute_history callee's_code_metadata)
-      ~tracker:(DE.inlining_history_tracker (DA.denv dacc))
+      ~pass:Inlining_report.Pass.Before_simplify ~unrolling_depth ~callee
+      ~tracker
       ~are_rebuilding_terms:(DA.are_rebuilding_terms dacc)
       ~apply decision;
     match Call_site_inlining_decision_type.can_inline decision with
@@ -209,9 +210,15 @@ let simplify_direct_full_application ~simplify_expr dacc apply function_type
             Bound_pattern.singleton
               (VB.create (Variable.create "inlined_dbg") Name_mode.normal)
           in
+          let history =
+            Inlining_history.Tracker.call ~dbg:(Apply_expr.dbg apply) ~callee
+              ~relative:(Apply_expr.relative_history apply)
+              tracker
+          in
           let defining_expr =
             Named.create_prim
-              (Nullary (Enter_inlined_apply { dbg = Apply_expr.dbg apply }))
+              (Nullary
+                 (Enter_inlined_apply { dbg = Apply_expr.dbg apply; history }))
               Debuginfo.none
           in
           let bindings =

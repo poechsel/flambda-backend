@@ -555,7 +555,10 @@ type nullary_primitive =
   | Optimised_out of K.t
   | Probe_is_enabled of { name : string }
   | Begin_region
-  | Enter_inlined_apply of { dbg : Debuginfo.t }
+  | Enter_inlined_apply of
+      { dbg : Debuginfo.t;
+        history : Inlining_history.Absolute.t
+      }
 
 let nullary_primitive_eligible_for_cse = function
   | Invalid _ | Optimised_out _ | Probe_is_enabled _ | Begin_region

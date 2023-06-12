@@ -316,7 +316,13 @@ module Inlining = struct
       (Bound_pattern.singleton
          (VB.create (Variable.create "inlined_dbg") Name_mode.normal))
       (Named.create_prim
-         (Nullary (Enter_inlined_apply { dbg = apply_dbg }))
+         (Nullary
+            (Enter_inlined_apply
+               { dbg = apply_dbg;
+                 history =
+                   Inlining_history.Absolute.empty ~source_file:None
+                     (Compilation_unit.get_current_exn ())
+               }))
          Debuginfo.none)
       ~body
 
