@@ -99,7 +99,8 @@ let current_unit =
     ui_generic_fns = { curry_fun = []; apply_fun = []; send_fun = [] };
     ui_force_link = false;
     ui_checks = Checks.create ();
-    ui_export_info = default_ui_export_info }
+    ui_export_info = default_ui_export_info;
+    ui_impl_filename = Location.absolute_path !Location.input_name }
 
 let reset compilation_unit =
   CU.Name.Tbl.clear global_infos_table;
@@ -108,6 +109,7 @@ let reset compilation_unit =
   CU.set_current (Some compilation_unit);
   current_unit.ui_unit <- compilation_unit;
   current_unit.ui_defines <- [compilation_unit];
+  current_unit.ui_impl_filename <- Location.absolute_path !Location.input_name;
   current_unit.ui_imports_cmi <- [];
   current_unit.ui_imports_cmx <- [];
   current_unit.ui_generic_fns <-
@@ -153,7 +155,8 @@ let read_unit_info filename =
       ui_generic_fns = uir.uir_generic_fns;
       ui_export_info = export_info;
       ui_checks = Checks.of_raw uir.uir_checks;
-      ui_force_link = uir.uir_force_link
+      ui_force_link = uir.uir_force_link;
+      ui_impl_filename = uir.uir_impl_filename;
     }
     in
     (ui, crc)
@@ -198,6 +201,7 @@ let get_unit_info comp_unit =
             if not (CU.equal ui.ui_unit comp_unit) then
               raise(Error(Illegal_renaming(comp_unit, ui.ui_unit, filename)));
             cache_checks ui.ui_checks;
+            Compiler_hooks.(execute Imported_compilation_unit (ui.ui_unit, ui.ui_impl_filename));
             (Some ui, Some crc)
           with Not_found ->
             let warn = Warnings.No_cmx_file (cmx_name |> CU.Name.to_string) in
@@ -361,6 +365,7 @@ let write_unit_info info filename =
     uir_force_link = info.ui_force_link;
     uir_section_toc = toc;
     uir_sections_length = total_length;
+    uir_impl_filename = info.ui_impl_filename;
   } in
   let oc = open_out_bin filename in
   output_string oc cmx_magic_number;

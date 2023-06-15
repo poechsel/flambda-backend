@@ -78,6 +78,8 @@ module Absolute : sig
 
   val print : Format.formatter -> t -> unit
 
+  val print_path : Format.formatter -> path -> unit
+
   val compare : t -> t -> int
 
   val uid_path : path -> string
