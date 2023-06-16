@@ -32,6 +32,7 @@ module Absolute = struct
     | Call of
         { dbg : Debuginfo.t;
           callee : t;
+          created_at : t;
           prev : path
         }
     | Inline of { prev : path }
@@ -51,7 +52,7 @@ module Absolute = struct
       | Function { name; prev; _ } -> Format.fprintf ppf "%a%s" aux prev name
       | Class { name; prev } -> Format.fprintf ppf "%a%s#" aux prev name
       | Module { name; prev } -> Format.fprintf ppf "%a%s." aux prev name
-      | Call { prev; callee; dbg } ->
+      | Call { prev; callee; dbg; created_at =_ } ->
         Format.fprintf ppf "%a(calling %a[%a])" aux prev print callee
           Debuginfo.print_compact dbg
       | Inline { prev } -> Format.fprintf ppf "(%a inlined)" aux prev
@@ -147,13 +148,13 @@ module Relative = struct
       Module { name; prev = concat ~earlier ~later:prev }
     | Function { name; prev; dbg } ->
       Function { name; prev = concat ~earlier ~later:prev; dbg }
-    | Call { callee; prev; dbg } ->
-      Call { callee; prev = concat ~earlier ~later:prev; dbg }
+    | Call { callee; prev; dbg; created_at } ->
+      Call { callee; created_at; prev = concat ~earlier ~later:prev; dbg }
     | Inline { prev } -> Inline { prev = concat ~earlier ~later:prev }
 
   let fundecl ~dbg ~name prev = Absolute.Function { name; prev; dbg }
 
-  let call ~dbg ~callee prev = Absolute.Call { callee; prev; dbg }
+  let call ~dbg ~callee ~created_at prev = Absolute.Call { callee; prev; created_at; dbg }
 
   let inline prev = Absolute.Inline { prev }
 
@@ -205,7 +206,7 @@ let extend_absolute (compilation_unit, absolute) relative =
     | Class { name; prev } -> Class { name; prev = aux prev }
     | Module { name; prev } -> Module { name; prev = aux prev }
     | Function { name; prev; dbg } -> Function { name; prev = aux prev; dbg }
-    | Call { callee; prev; dbg } -> Call { callee; prev = aux prev; dbg }
+    | Call { callee; prev; dbg ; created_at} -> Call { callee; created_at; prev = aux prev; dbg }
     | Inline { prev } -> Inline { prev = aux prev }
   in
   compilation_unit, aux relative
@@ -242,18 +243,18 @@ module Tracker = struct
     (* Discard the relative history from the tracker as it should already be
        present on the apply node. *)
     let relative =
-      Relative.inline (Relative.call ~dbg ~callee apply_relative_history)
+      Relative.inline (Relative.call ~dbg ~callee ~created_at:t.absolute apply_relative_history)
     in
     { t with relative }
 
   let unknown_call ~dbg ~relative { absolute; _ } =
     extend_absolute absolute
-      (Relative.call ~dbg
+      (Relative.call ~dbg ~created_at:absolute
          ~callee:(Absolute.empty (Compilation_unit.get_current_exn ()))
          relative)
 
   let call ~dbg ~callee ~relative { absolute; _ } =
-    extend_absolute absolute (Relative.call ~dbg ~callee relative)
+    extend_absolute absolute (Relative.call ~created_at:absolute ~dbg ~callee relative)
 
   let fundecl_of_scoped_location ~name
       ~(path_to_root : Debuginfo.Scoped_location.t)

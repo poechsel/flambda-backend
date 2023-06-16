@@ -299,9 +299,9 @@ module Decision_with_context = struct
         `String "Alloc";
         `String "Prim";
         `String "Branch";
-        `String "Direct call of indirect";
-        `String "Specialized poly compare";
-        `String "Requested inline" ];
+        `String "Indirect";
+        `String "Poly compare";
+        `String "Requested" ];
       [ `Int call;
         `Int alloc;
         `Int prim;
@@ -333,13 +333,13 @@ module Decision_with_context = struct
     | Small_function { size; small_function_size } ->
       Format.fprintf ppf
         "@[<hov>TThe@ function's@ body@ is@ smaller@ than@ the@ threshold@ \
-         size@ for@ small@ functions: size=%a <= large@ function@ size=%a.@]"
+         size@ for@ small@ functions:@ size=%a <= large@ function@ size=%a.@]"
         Code_size.print size Code_size.print small_function_size
     | Speculatively_inlinable { size; small_function_size; large_function_size }
       ->
       Format.fprintf ppf
         "@[<hov>The@ function's@ body@ is@ between@ the@ threshold@ size@ for@ \
-         small@ functions and the@ threshold@ size@ for@ large@ functions: \
+         small@ functions and the@ threshold@ size@ for@ large@ functions:@ \
          small@ function@ size=%a < size=%a < large@ function@ size=%a.@]"
         Code_size.print small_function_size Code_size.print size Code_size.print
         large_function_size
@@ -679,9 +679,9 @@ module Inlining_tree = struct
       | Function { dbg; name; prev } ->
         insert_or_update_descendant prev ~apply_to_child:(fun m ->
             insert_or_update_fundecl ~dbg ~name ~apply_to_child m)
-      | Call { dbg; callee; prev;  } ->
+      | Call { dbg; callee; prev; created_at } ->
         insert_or_update_descendant prev ~apply_to_child:(fun m ->
-            insert_or_update_call ~decision:(Reference callee) ~dbg ~callee
+            insert_or_update_call ~decision:(Reference created_at) ~dbg ~callee
               ~apply_to_child m)
       | Inline { prev } -> insert_or_update_descendant prev ~apply_to_child
     in
@@ -747,7 +747,7 @@ module Inlining_tree = struct
     | Scope (Unknown, _) -> IHA.Unknown { prev = path }
     | Scope (Module, name) -> IHA.Module { name; prev = path }
     | Scope (Class, name) -> IHA.Class { name; prev = path }
-    | Call callee -> IHA.Call { callee; dbg; prev = path }
+    | Call callee -> IHA.Call { callee; dbg; created_at=Inlining_history.Absolute.empty (Compilation_unit.of_string "This_is_fake"); prev = path }
     | Fundecl fundecl -> IHA.Function { name = fundecl; dbg; prev = path }
 
   let print_reference ~compilation_unit ppf to_ =
