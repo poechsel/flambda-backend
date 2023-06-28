@@ -5,6 +5,7 @@
   supports_no_install_bytecode_programs
   supports_no_install_source_artifacts
   supports_flambda2
+  supports_cached_generated_functions
   uses_autoconf
   is_flambda_backend
   build_m32_from_upstream
