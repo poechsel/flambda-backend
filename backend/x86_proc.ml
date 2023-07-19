@@ -371,14 +371,14 @@ let generate_code asm =
   | None -> ()
   end;
   begin match !internal_assembler with
-    | Some f ->
-      let get sections =
-         Section_name.Tbl.fold (fun name instrs acc ->
-            (name, List.rev !instrs) :: acc)
-          sections []
-      in
-      let instrs = get asm_code_by_section in
-      let delayed () = get delayed_sections in
-      binary_content := Some (f ~delayed instrs)
+  | Some f ->
+    let get sections =
+      Section_name.Tbl.fold (fun name instrs acc ->
+        (name, List.rev !instrs) :: acc)
+        sections []
+    in
+    let instrs = get asm_code_by_section in
+    let delayed () = get delayed_sections in
+    binary_content := Some (f ~delayed instrs)
   | None -> binary_content := None
   end
