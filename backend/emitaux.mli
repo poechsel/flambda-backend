@@ -123,6 +123,17 @@ module Dwarf_helpers : sig
   val emit_delayed_dwarf : unit -> unit
 
   val record_dwarf_for_fundecl : Linear.fundecl -> Dwarf.fundecl option
+
+  val record_dwarf_for_source_file :
+    file_name:string -> file_num:int -> unit
+
+  val record_dwarf_for_line_number_matrix_row
+    : instr_address : int
+    -> file_num : int
+    -> line : int
+    -> col : int
+    -> discriminator : int option
+    -> unit
 end
 
 exception Error of error

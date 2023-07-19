@@ -57,11 +57,12 @@ let create ~sourcefile ~unit_name ~asm_directives ~get_file_id ~code_begin
   let debug_ranges_table = Debug_ranges_table.create () in
   let address_table = Address_table.create () in
   let location_list_table = Location_list_table.create () in
+  let debug_line_section = Debug_line_section.create ~code_begin in
   let state =
     DS.create ~compilation_unit_header_label ~compilation_unit_proto_die
       ~value_type_proto_die ~start_of_code_symbol debug_loc_table
       debug_ranges_table address_table location_list_table
-      ~get_file_num:get_file_id
+      ~get_file_num:get_file_id ~debug_line_section
     (* CR mshinwell: does get_file_id successfully emit .file directives for
        files we haven't seen before? *)
   in
@@ -103,6 +104,16 @@ let dwarf_for_fundecl t fundecl ~fun_end_label =
       available_ranges_vars inlined_frame_ranges;
     { fun_end_label; fundecl }
 
+let dwarf_for_source_file t ~file_name ~file_num =
+  let debug_line_section = DS.debug_line_section t.state in
+  Debug_line_section.add_source_file debug_line_section ~file_name ~file_num
+
+let dwarf_for_line_number_matrix_row t ~instr_address ~file_num ~line ~col
+    ~discriminator =
+  let debug_line_section = DS.debug_line_section t.state in
+  Debug_line_section.add_line_number_matrix_row debug_line_section
+    ~instr_address ~file_num ~line ~col ~discriminator
+
 let emit t ~basic_block_sections ~binary_backend_available =
   if t.emitted
   then
@@ -118,6 +129,7 @@ let emit t ~basic_block_sections ~binary_backend_available =
     ~address_table:(DS.address_table t.state)
     ~location_list_table:(DS.location_list_table t.state)
     ~basic_block_sections ~binary_backend_available
+    ~debug_line:(DS.debug_line_section t.state)
 
 let emit t ~basic_block_sections ~binary_backend_available =
   Profile.record "emit_dwarf"

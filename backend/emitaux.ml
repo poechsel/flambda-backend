@@ -497,6 +497,8 @@ module Dwarf_helpers = struct
           || !Dwarf_flags.dwarf_inlined_frames)
       && not disable_dwarf
     in
+    if !Flambda_backend_flags.internal_assembler then
+      Dwarf_flags.set_debug_thing Dwarf_flags.Debug_source_lines;
     match can_emit_dwarf,
           Target_system.architecture (),
           Target_system.derived_system () with
@@ -523,6 +525,18 @@ module Dwarf_helpers = struct
     | Some dwarf ->
       let fun_end_label = Cmm.new_label () in
       Some (Dwarf.dwarf_for_fundecl dwarf fundecl ~fun_end_label)
+
+  let record_dwarf_for_source_file ~file_name ~file_num =
+    match !dwarf with
+    | None -> ()
+    | Some dwarf -> Dwarf.dwarf_for_source_file dwarf ~file_name ~file_num
+
+  let record_dwarf_for_line_number_matrix_row ~instr_address ~file_num ~line ~col
+      ~discriminator =
+    match !dwarf with
+    | None -> ()
+    | Some dwarf -> Dwarf.dwarf_for_line_number_matrix_row dwarf ~instr_address
+      ~file_num ~line ~col ~discriminator
 end
 
 let report_error ppf = function

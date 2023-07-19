@@ -28,6 +28,7 @@ val emit :
   location_list_table:Location_list_table.t ->
   basic_block_sections:bool ->
   binary_backend_available:bool ->
+  debug_line:Debug_line_section.t ->
   unit
 
 val emit_delayed :

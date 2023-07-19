@@ -26,12 +26,15 @@ type t =
     address_table : Address_table.t;
     location_list_table : Location_list_table.t;
     function_abstract_instances : (Proto_die.t * Asm_symbol.t) Asm_symbol.Tbl.t;
-    get_file_num : string -> int
+    get_file_num : string -> int;
+    debug_line_section : Dwarf_low.Debug_line_section.t
+
   }
 
 let create ~compilation_unit_header_label ~compilation_unit_proto_die
-    ~value_type_proto_die ~start_of_code_symbol debug_loc_table
-    debug_ranges_table address_table location_list_table ~get_file_num =
+      ~value_type_proto_die ~start_of_code_symbol ~debug_line_section
+      debug_loc_table debug_ranges_table address_table 
+      location_list_table ~get_file_num =
   { compilation_unit_header_label;
     compilation_unit_proto_die;
     value_type_proto_die;
@@ -41,7 +44,8 @@ let create ~compilation_unit_header_label ~compilation_unit_proto_die
     address_table;
     location_list_table;
     function_abstract_instances = Asm_symbol.Tbl.create 42;
-    get_file_num
+    get_file_num;
+    debug_line_section
   }
 
 let compilation_unit_header_label t = t.compilation_unit_header_label
@@ -65,6 +69,8 @@ let function_abstract_instances t = t.function_abstract_instances
 let can_reference_dies_across_units _t = true
 
 let get_file_num t filename = t.get_file_num filename
+
+let debug_line_section t = t.debug_line_section
 
 module Debug = struct
   let log f =
