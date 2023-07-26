@@ -497,8 +497,9 @@ module Dwarf_helpers = struct
           || !Dwarf_flags.dwarf_inlined_frames)
       && not disable_dwarf
     in
-    if !Flambda_backend_flags.internal_assembler then
+    if !Flambda_backend_flags.internal_assembler then (
       Dwarf_flags.set_debug_thing Dwarf_flags.Debug_source_lines;
+      Dwarf_flags.set_debug_thing Dwarf_flags.Debug_dwarf_cfi);
     match can_emit_dwarf,
           Target_system.architecture (),
           Target_system.derived_system () with

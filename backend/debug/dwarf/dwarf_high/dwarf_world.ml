@@ -19,7 +19,7 @@ let emit0_delayed ~asm_directives:_ = ()
 
 let emit0 ~asm_directives ~compilation_unit_proto_die
     ~compilation_unit_header_label ~debug_loc_table ~debug_ranges_table
-    ~address_table ~location_list_table ~debug_line =
+    ~address_table ~location_list_table ~debug_line ~debug_frame =
   let module A = (val asm_directives : Asm_directives.S) in
   (* CR-soon mshinwell: the [compilation_unit_die] member of the record returned
      from [Assign_abbrevs.run] is now unused *)
@@ -45,9 +45,12 @@ let emit0 ~asm_directives ~compilation_unit_proto_die
         A.switch_to_section (DWARF Debug_line);
         Profile.record "debug_line_section"
           (Debug_line_section.emit ~asm_directives)
-          debug_line
-      );
-      A.switch_to_section (DWARF Debug_info);
+          debug_line);
+      if Dwarf_flags.debug_thing Dwarf_flags.Debug_dwarf_cfi then (
+        A.switch_to_section (DWARF Debug_frame);
+        Profile.record "debug_frame_section"
+          (Debug_frame_section.emit ~asm_directives)
+          debug_frame);
       Profile.record "debug_info_section"
         (Debug_info_section.emit ~asm_directives)
         debug_info;
@@ -80,7 +83,7 @@ let emit0 ~asm_directives ~compilation_unit_proto_die
 let emit ~asm_directives ~compilation_unit_proto_die
     ~compilation_unit_header_label ~debug_loc_table ~debug_ranges_table
     ~address_table ~location_list_table ~basic_block_sections
-    ~binary_backend_available ~debug_line =
+    ~binary_backend_available ~debug_line ~debug_frame =
   if (* CR mshinwell: support function sections *)
      !Clflags.function_sections || basic_block_sections
      (* CR mshinwell: support the internal assembler *)
@@ -89,7 +92,7 @@ let emit ~asm_directives ~compilation_unit_proto_die
   else
     emit0 ~asm_directives ~compilation_unit_proto_die
       ~compilation_unit_header_label ~debug_loc_table ~debug_ranges_table
-      ~address_table ~location_list_table ~debug_line
+      ~address_table ~location_list_table ~debug_line ~debug_frame
 
 let emit_delayed ~asm_directives ~basic_block_sections ~binary_backend_available
     =

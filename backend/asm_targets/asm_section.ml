@@ -37,6 +37,7 @@ type dwarf_section =
   | Debug_rnglists
   | Debug_str
   | Debug_line
+  | Debug_frame
 
 type t =
   | DWARF of dwarf_section
@@ -54,7 +55,8 @@ let dwarf_sections_in_order () =
       DWARF Debug_abbrev;
       DWARF Debug_aranges;
       DWARF Debug_str;
-      DWARF Debug_line ]
+      DWARF Debug_line;
+      DWARF Debug_frame ]
   in
   let dwarf_version_dependent_sections =
     match !Dwarf_flags.gdwarf_version with
@@ -64,7 +66,7 @@ let dwarf_sections_in_order () =
   sections @ dwarf_version_dependent_sections
 
 let is_delayed = function
-  | DWARF Debug_line -> true
+  | DWARF ( Debug_line | Debug_frame ) -> true
   | DWARF
       ( Debug_info | Debug_abbrev | Debug_aranges | Debug_str | Debug_loclists
       | Debug_rnglists | Debug_addr | Debug_loc | Debug_ranges )
@@ -87,6 +89,7 @@ let details t ~first_occurrence =
         | Debug_rnglists -> "__debug_rnglists"
         | Debug_str -> "__debug_str"
         | Debug_line -> "__debug_line"
+        | Debug_frame -> "__debug_frame"
       in
       ["__DWARF"; name], None, ["regular"; "debug"]
     | DWARF dwarf, _ ->
@@ -102,6 +105,7 @@ let details t ~first_occurrence =
         | Debug_rnglists -> ".debug_rnglists"
         | Debug_str -> ".debug_str"
         | Debug_line -> ".debug_line"
+        | Debug_frame -> ".debug_frame"
       in
       let flags = if first_occurrence then Some "" else None in
       let args = if first_occurrence then ["%progbits"] else [] in
@@ -127,6 +131,7 @@ let print ppf t =
     | DWARF Debug_rnglists -> "(DWARF Debug_rnglists)"
     | DWARF Debug_str -> "(DWARF Debug_str)"
     | DWARF Debug_line -> "(DWARF Debug_line)"
+    | DWARF Debug_frame -> "(DWARF Debug_frame)"
     | Text -> "Text"
   in
   Format.pp_print_string ppf str

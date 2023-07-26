@@ -26,6 +26,7 @@ val create :
   value_type_proto_die:Proto_die.t ->
   start_of_code_symbol:Asm_symbol.t ->
   debug_line_section:Debug_line_section.t ->
+  debug_frame_section:Debug_frame_section.t ->
   Debug_loc_table.t ->
   Debug_ranges_table.t ->
   Address_table.t ->
@@ -57,6 +58,8 @@ val can_reference_dies_across_units : t -> bool
 val get_file_num : t -> string -> int
 
 val debug_line_section : t -> Dwarf_low.Debug_line_section.t
+
+val debug_frame_section : t -> Debug_frame_section.t
 
 module Debug : sig
   val log : ('a, Format.formatter, unit) format -> 'a

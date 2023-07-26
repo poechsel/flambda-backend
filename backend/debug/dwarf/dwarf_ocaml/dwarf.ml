@@ -58,11 +58,13 @@ let create ~sourcefile ~unit_name ~asm_directives ~get_file_id ~code_begin
   let address_table = Address_table.create () in
   let location_list_table = Location_list_table.create () in
   let debug_line_section = Debug_line_section.create ~code_begin in
+  let debug_frame_section = Debug_frame_section.create () in
   let state =
     DS.create ~compilation_unit_header_label ~compilation_unit_proto_die
       ~value_type_proto_die ~start_of_code_symbol debug_loc_table
       debug_ranges_table address_table location_list_table
       ~get_file_num:get_file_id ~debug_line_section
+      ~debug_frame_section
     (* CR mshinwell: does get_file_id successfully emit .file directives for
        files we haven't seen before? *)
   in
@@ -134,6 +136,7 @@ let emit t ~basic_block_sections ~binary_backend_available =
     ~location_list_table:(DS.location_list_table t.state)
     ~basic_block_sections ~binary_backend_available
     ~debug_line:(DS.debug_line_section t.state)
+    ~debug_frame:(DS.debug_frame_section t.state)
 
 let emit t ~basic_block_sections ~binary_backend_available =
   Profile.record "emit_dwarf"
