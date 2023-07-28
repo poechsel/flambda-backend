@@ -144,3 +144,7 @@ let gdwarf_self_tail_calls = ref default_gdwarf_self_tail_calls
 let gdwarf_may_alter_codegen = ref false
 
 let dwarf_inlined_frames = ref false
+
+let default_gdwarf_use_eh_frame = true
+
+let gdwarf_use_eh_frame = ref default_gdwarf_use_eh_frame

@@ -75,3 +75,7 @@ val gdwarf_may_alter_codegen : bool ref
     [restrict_to_upstream_dwarf] is set to [false], although that implies
     this variable being set to [true]). *)
 val dwarf_inlined_frames : bool ref
+
+val default_gdwarf_use_eh_frame : bool
+
+val gdwarf_use_eh_frame : bool ref

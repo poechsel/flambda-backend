@@ -262,13 +262,13 @@ module Make (A : Asm_directives_intf.Arg) : Asm_directives_intf.S = struct
     Option.iter D.comment comment;
     let lab = D.const_label (Asm_label.encode lab) in
     const_machine_width (D.const_add lab (D.const_int64 offset_in_bytes))
-
+  
   let symbol_plus_offset symbol ~offset_in_bytes =
     let offset_in_bytes = Targetint.to_int64 offset_in_bytes in
     const_machine_width
       (D.const_add
-         (D.const_label (Asm_symbol.encode symbol))
-         (D.const_int64 offset_in_bytes))
+          (D.const_label (Asm_symbol.encode symbol))
+          (D.const_int64 offset_in_bytes))
 
   let new_temp_var () =
     let id = !temp_var_counter in
