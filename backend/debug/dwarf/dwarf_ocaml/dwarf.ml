@@ -58,7 +58,7 @@ let create ~sourcefile ~unit_name ~asm_directives ~get_file_id ~code_begin
   let address_table = Address_table.create () in
   let location_list_table = Location_list_table.create () in
   let debug_line_section = Debug_line_section.create ~code_begin in
-  let debug_frame_section = Debug_frame_section.create () in
+  let debug_frame_section = Debug_frame_section.create ~code_begin in
   let state =
     DS.create ~compilation_unit_header_label ~compilation_unit_proto_die
       ~value_type_proto_die ~start_of_code_symbol debug_loc_table
@@ -115,6 +115,19 @@ let dwarf_for_line_number_matrix_row t ~instr_address ~file_num ~line ~col
   let debug_line_section = DS.debug_line_section t.state in
   Debug_line_section.add_line_number_matrix_row debug_line_section
     ~instr_address ~file_num ~line ~col ~discriminator
+
+let dwarf_for_cfi_startproc t ~address =
+  let debug_frame_section = DS.debug_frame_section t.state in
+  Debug_frame_section.process_cfi_startproc debug_frame_section ~address
+
+let dwarf_for_cfi_adjust_cfa_offset t ~address ~offset =
+  let debug_frame_section = DS.debug_frame_section t.state in
+  Debug_frame_section.process_cfi_adjust_cfa_offset debug_frame_section ~address
+    ~offset
+
+let dwarf_for_cfi_endproc t ~address =
+  let debug_frame_section = DS.debug_frame_section t.state in
+  Debug_frame_section.process_cfi_endproc debug_frame_section ~address
 
 let checkpoint t = Debug_line_section.checkpoint (DS.debug_line_section t.state)
 
