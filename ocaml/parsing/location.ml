@@ -63,6 +63,8 @@ let in_file = Warnings.ghost_loc_in_file
 let none = in_file "_none_"
 let is_none l = (l = none)
 
+let is_dummy_filename name = name = "_none_";;
+
 let curr lexbuf = {
   loc_start = lexbuf.lex_start_p;
   loc_end = lexbuf.lex_curr_p;
