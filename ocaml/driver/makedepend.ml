@@ -25,6 +25,7 @@ let load_path = ref ([] : (string * string array) list)
 let ml_synonyms = ref [".ml"]
 let mli_synonyms = ref [".mli"]
 let shared = ref false
+let shared_test = ref false
 let native_only = ref false
 let bytecode_only = ref false
 let raw_dependencies = ref false
@@ -642,6 +643,8 @@ let run_main argv =
         "<cmd>  Pipe abstract syntax trees through preprocessor <cmd>";
       "-shared", Arg.Set shared,
         " Generate dependencies for native plugin files (.cmxs targets)";
+        "-shared-test", Arg.Set shared_test,
+          " Generate dependencies for native plugin files (.cmxs targets)";
       "-slash", Arg.Set Clflags.force_slash,
         " (Windows) Use forward slash / instead of backslash \\ in file paths";
       "-sort", Arg.Set sort_files,

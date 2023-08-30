@@ -103,3 +103,10 @@ type library_infos =
        how they end up being used on the command line. *)
     lib_ccobjs: string list;            (* C object files needed *)
     lib_ccopts: string list }           (* Extra opts to C compiler *)
+
+type library_infos_dynamic =
+{ lib_imports_cmi: Import_info.t array;
+  lib_imports_cmx: Import_info.t array;
+  lib_units: lib_unit_info list;
+  lib_generic_fns: generic_fns;
+  }

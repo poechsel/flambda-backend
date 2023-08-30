@@ -163,6 +163,7 @@ let std_include_dir () =
 ;;
 
 let shared = ref false (* -shared *)
+let shared_test = ref false (* -shared-test *)
 let dlcode = ref true (* not -nodynlink *)
 
 let pic_code = ref (match Config.architecture with (* -fPIC *)

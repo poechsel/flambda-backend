@@ -170,6 +170,15 @@ let read_library_info filename =
   close_in ic;
   infos
 
+let read_library_info_dynamic filename =
+  let ic = open_in_bin filename in
+  let buffer = really_input_string ic (String.length cmxso_magic_number) in
+  if buffer <> cmxso_magic_number then
+    raise(Error(Not_a_unit_info filename));
+  let infos = (input_value ic : library_infos_dynamic) in
+  close_in ic;
+  infos
+
 
 (* Read and cache info on global identifiers *)
 

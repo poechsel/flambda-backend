@@ -677,7 +677,8 @@ let process_action
       dllibs := names @ !dllibs
   | ProcessOtherFile name ->
       if Filename.check_suffix name ocaml_mod_ext
-      || Filename.check_suffix name ocaml_lib_ext then
+      || Filename.check_suffix name ocaml_lib_ext
+      || Filename.check_suffix name ".cmxso" then
         objfiles := name :: !objfiles
       else if Filename.check_suffix name ".cmi" && !make_package then
         objfiles := name :: !objfiles

@@ -1016,6 +1016,18 @@ module Bitmap = struct
           f (pos + j)
       done
     done
+
+  let fold_left f init t =
+    let acc = ref init in
+    for i = 0 to length_bytes t.length - 1 do
+      let c = unsafe_get_byte t i in
+      let pos = i lsl 3 in
+      for j = 0 to 7 do
+        if c land (1 lsl j) <> 0 then
+          acc := f !acc (pos + j)
+      done
+    done;
+    !acc
 end
 
 module Magic_number = struct

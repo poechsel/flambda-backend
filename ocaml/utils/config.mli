@@ -114,6 +114,9 @@ val cmx_magic_number: string
 val cmxa_magic_number: string
 (** Magic number for libraries of compilation unit descriptions *)
 
+val cmxso_magic_number: string
+(** Magic number for dynamic libraries of compilation unit descriptions *)
+
 val ast_intf_magic_number: string
 (** Magic number for file holding an interface syntax tree *)
 

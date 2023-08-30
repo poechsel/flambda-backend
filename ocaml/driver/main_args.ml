@@ -535,6 +535,9 @@ let mk_shared f =
   "-shared", Arg.Unit f, " Produce a dynlinkable plugin"
 ;;
 
+let mk_shared_test f =
+  "-shared-test", Arg.Unit f, " Produce a dynlinkable plugin"
+;;
 let mk_short_paths f =
   "-short-paths", Arg.Unit f, " Shorten paths in types"
 ;;
@@ -1213,6 +1216,7 @@ module type Optcomp_options = sig
   val _pp : string -> unit
   val _S : unit -> unit
   val _shared : unit -> unit
+  val _shared_test : unit -> unit
   val _afl_instrument : unit -> unit
   val _afl_inst_ratio : int -> unit
   val _function_sections : unit -> unit
@@ -1536,6 +1540,7 @@ struct
     mk_S F._S;
     mk_safe_string F._safe_string;
     mk_shared F._shared;
+    mk_shared_test F._shared_test;
     mk_short_paths F._short_paths;
     mk_strict_sequence F._strict_sequence;
     mk_no_strict_sequence F._no_strict_sequence;
@@ -2103,6 +2108,7 @@ module Default = struct
         "Profiling with \"gprof\" (option `-p') is only supported up to \
          OCaml 4.08.0"
     let _shared () = shared := true; dlcode := true
+    let _shared_test () = shared_test := true; dlcode := true
     let _v () = Compenv.print_version_and_library "native-code compiler"
     let _no_probes = clear probes
     let _probes = set probes

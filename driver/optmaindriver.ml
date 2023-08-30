@@ -97,7 +97,7 @@ let main unix argv ppf ~flambda2 =
     Compenv.readenv ppf Before_link;
     if
       List.length (List.filter (fun x -> !x)
-                     [make_package; make_archive; shared;
+                     [make_package; make_archive; shared; shared_test;
                       Compenv.stop_early; output_c_object]) > 1
     then
     begin
@@ -132,6 +132,14 @@ let main unix argv ppf ~flambda2 =
           ~flambda2);
       Warnings.check_fatal ();
     end
+  else if !shared_test then begin
+    Compmisc.init_path ();
+    let target = Compenv.extract_output !output_name in
+    Compmisc.with_ppf_dump ~file_prefix:target (fun ppf_dump ->
+      Asmlink.link_shared' unix ~ppf_dump
+        (Compenv.get_objfiles ~with_ocamlparam:false) target);
+    Warnings.check_fatal ();
+  end
     else if !shared then begin
       Compmisc.init_path ();
       let target = Compenv.extract_output !output_name in

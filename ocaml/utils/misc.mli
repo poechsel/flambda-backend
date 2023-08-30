@@ -507,6 +507,7 @@ module Bitmap : sig
   val clear : t -> int -> unit
   val get : t -> int -> bool
   val iter : (int -> unit) -> t -> unit
+  val fold_left : ('a -> int -> 'a) -> 'a -> t -> 'a
 end
 
 module Magic_number : sig

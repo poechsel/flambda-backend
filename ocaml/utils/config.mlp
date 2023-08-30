@@ -114,6 +114,11 @@ and cmxa_magic_number =
     "Caml2021z513"
   else
     "Caml2021Z513"
+and cmxso_magic_number =
+  if flambda || flambda2 then
+    "Caml2021s513"
+  else
+    "Caml2021S513"
 and ast_impl_magic_number = "Caml1999M031"
 and ast_intf_magic_number = "Caml1999N031"
 and cmxs_magic_number = "Caml1999D512"
@@ -224,6 +229,7 @@ let configuration_variables =
   p "cma_magic_number" cma_magic_number;
   p "cmx_magic_number" cmx_magic_number;
   p "cmxa_magic_number" cmxa_magic_number;
+  p "cmxso_magic_number" cmxso_magic_number;
   p "ast_impl_magic_number" ast_impl_magic_number;
   p "ast_intf_magic_number" ast_intf_magic_number;
   p "cmxs_magic_number" cmxs_magic_number;

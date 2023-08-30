@@ -171,6 +171,7 @@ val dont_write_files : bool ref
 val std_include_flag : string -> string
 val std_include_dir : unit -> string list
 val shared : bool ref
+val shared_test : bool ref
 val dlcode : bool ref
 val pic_code : bool ref
 val runtime_variant : string ref

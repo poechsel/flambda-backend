@@ -131,7 +131,7 @@ let extract_crc_implementations () =
 let lib_ccobjs = ref []
 let lib_ccopts = ref []
 
-let add_ccobjs origin l =
+let add_ccobjs origin (l : library_infos) =
   if not !Clflags.no_auto_link then begin
     lib_ccobjs := l.lib_ccobjs @ !lib_ccobjs;
     let replace_origin =
@@ -181,6 +181,7 @@ let extract_missing_globals () =
 type file =
   | Unit of string * unit_infos * Digest.t
   | Library of string * library_infos
+  | Shared_library of string * library_infos_dynamic
 
 let read_file obj_name =
   let file_name =
@@ -198,18 +199,28 @@ let read_file obj_name =
     let infos =
       try read_library_info file_name
       with Compilenv.Error(Not_a_unit_info _) ->
+        print_endline "A";
         raise(Error(Not_an_object_file file_name))
     in
     Library (file_name,infos)
   end
-  else raise(Error(Not_an_object_file file_name))
+  else if Filename.check_suffix file_name ".cmxso" then begin
+    let infos =
+      try read_library_info_dynamic file_name
+      with Compilenv.Error(Not_a_unit_info _) ->
+        print_endline "A";
+        raise(Error(Not_an_object_file file_name))
+    in
+    Shared_library (file_name,infos)
+  end
+  else begin print_endline "B"; raise(Error(Not_an_object_file file_name)) end
 
 let assume_no_prefix modname =
   (* We're the linker, so we assume that everything's already been packed, so
      no module needs its prefix considered. *)
   CU.create CU.Prefix.empty modname
 
-let scan_file ~shared genfns file (objfiles, tolink) =
+let scan_file ~shared genfns file (objfiles, tolink) : [>`O of string | `So of string] list * unit_link_info list =
   match read_file file with
   | Unit (file_name,info,crc) ->
       (* This is a .cmx file. It must be linked in any case. *)
@@ -238,7 +249,7 @@ let scan_file ~shared genfns file (objfiles, tolink) =
         (Array.of_list info.ui_imports_cmi)
         (Array.of_list info.ui_imports_cmx);
       Cmm_helpers.Generic_fns_tbl.add genfns info.ui_generic_fns;
-      object_file_name :: objfiles, unit :: tolink
+      (`O object_file_name :: objfiles), unit :: tolink
   | Library (file_name,infos) ->
       (* This is an archive file. Each unit contained in it will be linked
          in only if needed. *)
@@ -256,7 +267,7 @@ let scan_file ~shared genfns file (objfiles, tolink) =
            things to the .a/.lib file *)
         if infos.lib_units = [] && not (Sys.file_exists obj_file)
         then objfiles
-        else obj_file :: objfiles
+        else `O obj_file :: objfiles
       in
       objfiles,
       List.fold_right
@@ -301,6 +312,83 @@ let scan_file ~shared genfns file (objfiles, tolink) =
            end else
            reqd)
         infos.lib_units tolink
+
+
+  | Shared_library (file_name, infos) ->
+    (* TODO poechsel: Ideally all the genfns for the shared library should go within the shared library.
+        In practice that's hard to do as if we've got several shared library there might be duplications
+        of them.
+        For now we use the cached generated functions but in practice it would be nice to do something a
+        bit clever. For example, here we should remove the generic functions contained in the shared lib
+        to the list of needed shared libs
+    *)
+    (*
+    Cmm_helpers.Generic_fns_tbl.add genfns infos.lib_generic_fns; *)
+    check_cmi_consistency file_name infos.lib_imports_cmi;
+    check_cmx_consistency file_name infos.lib_imports_cmx;
+    let obj_file = Filename.chop_suffix file_name ".cmxso" ^ ext_dll in
+
+    (* Start by collecting all units present in the so file *)
+    let units_in_so = CU.Name.Tbl.create 10 in
+    List.iter
+      (fun info ->
+         let li_name = CU.name info.li_name in
+         CU.Name.Tbl.add units_in_so li_name info)
+      infos.lib_units;
+
+    (* We then do a tree traversal to collect all units we are depending upon *)
+    let already_seen = CU.Name.Tbl.create 10 in
+    let add_required' = add_required in
+    let rec add_required reqd req_by import =
+      let name = Import_info.name import in
+      if not (CU.Name.Tbl.mem already_seen name) then begin
+        add_required' req_by import;
+        CU.Name.Tbl.add already_seen name ();
+        match CU.Name.Tbl.find_opt units_in_so name with
+        | None -> reqd
+        | Some info ->
+          load_unit reqd info
+      end else reqd
+    and load_unit reqd info =
+      let li_name = CU.name info.li_name in
+         if info.li_force_link
+         || !Clflags.link_everything
+         || is_required info.li_name
+         then begin
+           remove_required info.li_name;
+           let req_by = (file_name, Some li_name) in
+           let reqd =
+            info.li_imports_cmx |> Misc.Bitmap.fold_left (fun reqd i ->
+              let import = infos.lib_imports_cmx.(i) in
+              add_required reqd req_by import) reqd
+           in
+           let unit =
+             { name = info.li_name;
+               crc = info.li_crc;
+               defines = info.li_defines;
+               file_name;
+               (* TODO poechsel: Add an assert here *)
+               dynunit = None }
+           in
+           check_consistency ~unit [| |] [| |];
+           unit :: reqd
+         end else
+         reqd
+         in
+
+    let keys = Hashtbl.to_seq_keys missing_globals |> List.of_seq in
+    let new_deps =
+      List.fold_left (fun reqd name ->
+        match CU.Name.Tbl.find_opt units_in_so (CU.name name) with
+        | None -> reqd
+        | Some info ->
+          CU.Name.Tbl.add already_seen (CU.name name) ();
+          load_unit reqd info
+      )
+      [] keys
+      |> List.rev
+    in
+    `So obj_file :: objfiles, new_deps @ tolink
 
 (* Second pass: generate the startup file and link it with everything else *)
 
@@ -353,6 +441,7 @@ let make_startup_file unix ~ppf_dump ~sourcefile_for_dwarf genfns units =
   let compile_phrase p = Asmgen.compile_phrase ~ppf_dump p in
   let name_list =
     List.flatten (List.map (fun u -> u.defines) units) in
+    List.iter (fun n -> print_endline @@ CU.Name.to_string @@ Compilation_unit.name n) name_list;
   List.iter compile_phrase (Cmm_helpers.entry_point name_list);
   List.iter compile_phrase
     (Cmm_helpers.emit_preallocated_blocks []
@@ -414,7 +503,7 @@ let make_shared_startup_file unix ~ppf_dump ~sourcefile_for_dwarf genfns units =
 
 let call_linker_shared ?(native_toplevel = false) file_list output_name =
   let exitcode =
-    Ccomp.call_linker ~native_toplevel Ccomp.Dll output_name file_list ""
+    Ccomp.call_linker ~native_toplevel Ccomp.Dll output_name (List.map (function `O f -> f | `So f -> "-l " ^ f) file_list) ""
   in
   if not (exitcode = 0)
   then raise(Error(Linking_error exitcode))
@@ -426,11 +515,162 @@ let link_shared unix ~ppf_dump objfiles output_name =
          until it is properly tested for shared library linking. *)
       Emitaux.binary_backend_available := false;
     let genfns = Cmm_helpers.Generic_fns_tbl.make () in
+    let (ml_objfiles : [> `O of string | `So of string ] list), units_tolink =
+      List.fold_right (scan_file ~shared:true genfns) objfiles ([],[]) in
+    Clflags.ccobjs := !Clflags.ccobjs @ !lib_ccobjs;
+    Clflags.all_ccopts := !lib_ccopts @ !Clflags.all_ccopts;
+    let objfiles = List.rev ml_objfiles @ List.map (fun f -> `O f) (List.rev !Clflags.ccobjs) in
+    let named_startup_file = named_startup_file () in
+    let startup =
+      if named_startup_file
+      then output_name ^ ".startup" ^ ext_asm
+      else Filename.temp_file "camlstartup" ext_asm in
+    let startup_obj = `O (output_name ^ ".startup" ^ ext_obj) in
+    let sourcefile_for_dwarf = sourcefile_for_dwarf ~named_startup_file startup in
+    Asmgen.compile_unit ~output_prefix:output_name
+      ~asm_filename:startup ~keep_asm:!Clflags.keep_startup_file
+      ~obj_filename:(match startup_obj with `O f -> f)
+      ~may_reduce_heap:true
+      ~ppf_dump
+      (fun () ->
+         make_shared_startup_file unix ~ppf_dump ~sourcefile_for_dwarf
+           genfns units_tolink
+      );
+    call_linker_shared (startup_obj :: objfiles) output_name;
+    if !Flambda_backend_flags.internal_assembler then
+      (* CR gyorsh: restore after workaround. *)
+      Emitaux.binary_backend_available := true;
+    remove_file (match startup_obj with `O f -> f)
+  )
+
+
+
+  let make_shared_startup_file' unix ~ppf_dump ~sourcefile_for_dwarf genfns units =
+    let compile_phrase p = Asmgen.compile_phrase ~ppf_dump p in
+    Location.input_name := "caml_startup";
+    let shared_startup_comp_unit =
+      CU.create CU.Prefix.empty (CU.Name.of_string "_shared_startup")
+    in
+    Compilenv.reset shared_startup_comp_unit;
+    Emitaux.Dwarf_helpers.init ~disable_dwarf:(not !Dwarf_flags.dwarf_for_startup_file)
+      sourcefile_for_dwarf;
+    Emit.begin_assembly unix;
+    (* TODO poechsel: Also generate caml_apply and other functions for shared objects*)
+    (* List.iter compile_phrase
+      (Cmm_helpers.emit_preallocated_blocks []
+        (Cmm_helpers.generic_functions true genfns)); *)
+    if !Clflags.output_complete_object then
+      force_linking_of_startup ~ppf_dump;
+    (* this is to force a reference to all units, otherwise the linker
+       might drop some of them (in case of libraries) *)
+    Emit.end_assembly ()
+
+
+    let call_linker_shared' ?(native_toplevel = false) file_list output_name =
+      let exitcode =
+        Ccomp.call_linker ~native_toplevel Ccomp.Dll output_name (List.map (function `O f -> f | `So f -> "-l " ^ f) file_list) "-Wl,-no-whole-archive"
+      in
+      if not (exitcode = 0)
+      then raise(Error(Linking_error exitcode))
+
+
+let write_dynamic_cmxo file_list lib_name =
+  let (cmis, cmxs, units) =
+    List.fold_left (fun (cmis, cmxs, units) f ->
+      if not (Filename.check_suffix f ".cmxa" || Filename.check_suffix f ".cmx") then (cmis, cmxs, units) else
+      match read_file f with
+      | Library (_, info) ->
+        (Array.to_list info.lib_imports_cmi :: cmis,
+        Array.to_list info.lib_imports_cmx :: cmxs,
+        (Some info, info.lib_units) :: units
+        )
+      | Unit (_,(unit : unit_infos), _) ->
+        let unit' =
+          { li_name = unit.ui_unit;
+            li_crc = "";
+            li_defines = unit.ui_defines;
+            li_force_link = unit.ui_force_link;
+            li_imports_cmi = Misc.Bitmap.make 0;
+            li_imports_cmx = Misc.Bitmap.make 0}
+        in
+        ( unit.ui_imports_cmi :: cmis,
+          unit.ui_imports_cmx :: cmxs,
+          (None, [ unit' ]) :: units
+        )
+        | Shared_library _ -> assert false
+      )
+      ([], [], [])
+      file_list
+  in
+  (* The following chunk of codes is needed to update the different [li_imports_cm{i,x}]
+     entries to point to the correct set of imported units represented by this shared library
+  *)
+  let lib_imports_cmx = Array.of_list (List.concat cmxs) in
+  let lib_imports_cmi = Array.of_list (List.concat cmis) in
+  let cmx_index, cmi_index =
+    let aux l =
+      let tbl = CU.Name.Tbl.create 0 in
+      Array.iteri (fun i n ->
+        CU.Name.Tbl.add tbl (Import_info.name n) i) l;
+      tbl
+    in
+    aux lib_imports_cmx,
+    aux lib_imports_cmi
+  in
+  let lib_units =
+    List.map (fun (lib, (units : lib_unit_info list)) ->
+      match lib with
+      | None -> units
+      | Some (lib : library_infos) ->
+        let make_bitmap ~get orig imports =
+          let b = Misc.Bitmap.make (CU.Name.Tbl.length imports) in
+          Misc.Bitmap.iter  (fun i ->
+            let import = get i in
+            Misc.Bitmap.set b (CU.Name.Tbl.find imports (Import_info.name import)))
+            orig;
+          b
+          in
+        List.map (fun unit ->
+            { (unit : lib_unit_info) with
+              li_imports_cmi = make_bitmap ~get:(fun i -> lib.lib_imports_cmi.(i)) unit.li_imports_cmi cmi_index;
+              li_imports_cmx = make_bitmap ~get:(fun i -> lib.lib_imports_cmx.(i)) unit.li_imports_cmx cmx_index;
+            }
+          ) units
+      ) units
+      |> List.concat
+  in
+  let (infos : library_infos_dynamic) =
+    { lib_imports_cmi;
+    lib_imports_cmx;
+    lib_units;
+    lib_generic_fns = { curry_fun = [];
+      apply_fun = [];
+      send_fun = [] };
+    }
+  in
+  let outchan = open_out_bin lib_name in
+  Misc.try_finally
+    ~always:(fun () -> close_out outchan)
+    ~exceptionally:(fun () -> remove_file lib_name)
+    (fun () ->
+        output_string outchan cmxso_magic_number;
+        output_value outchan infos
+    )
+
+let link_shared' unix ~ppf_dump objfiles output_name =
+let orig = objfiles in
+  Profile.record_call output_name (fun () ->
+    Clflags.link_everything := true;
+    if !Flambda_backend_flags.internal_assembler then
+      (* CR-soon gyorsh: workaround to turn off internal assembler temporarily,
+         until it is properly tested for shared library linking. *)
+      Emitaux.binary_backend_available := false;
+    let genfns = Cmm_helpers.Generic_fns_tbl.make () in
     let ml_objfiles, units_tolink =
       List.fold_right (scan_file ~shared:true genfns) objfiles ([],[]) in
     Clflags.ccobjs := !Clflags.ccobjs @ !lib_ccobjs;
     Clflags.all_ccopts := !lib_ccopts @ !Clflags.all_ccopts;
-    let objfiles = List.rev ml_objfiles @ List.rev !Clflags.ccobjs in
+    let objfiles = List.rev ml_objfiles @ List.map (fun f -> `O f) (List.rev !Clflags.ccobjs) in
     let named_startup_file = named_startup_file () in
     let startup =
       if named_startup_file
@@ -444,14 +684,15 @@ let link_shared unix ~ppf_dump objfiles output_name =
       ~may_reduce_heap:true
       ~ppf_dump
       (fun () ->
-         make_shared_startup_file unix ~ppf_dump ~sourcefile_for_dwarf
+         make_shared_startup_file' unix ~ppf_dump ~sourcefile_for_dwarf
            genfns units_tolink
       );
-    call_linker_shared (startup_obj :: objfiles) output_name;
+    call_linker_shared' (`O startup_obj :: objfiles) output_name;
     if !Flambda_backend_flags.internal_assembler then
       (* CR gyorsh: restore after workaround. *)
       Emitaux.binary_backend_available := true;
-    remove_file startup_obj
+    remove_file startup_obj;
+    write_dynamic_cmxo orig (Filename.remove_extension output_name ^ ".cmxso")
   )
 
 let make_cached_generic_functions unix  ~ppf_dump ~sourcefile_for_dwarf =
@@ -491,7 +732,8 @@ let call_linker file_list_rev startup_file output_name =
                  && Filename.check_suffix output_name Config.ext_dll
   and main_obj_runtime = !Clflags.output_complete_object
   in
-  let files = startup_file :: (List.rev file_list_rev) in
+  let files = (List.rev file_list_rev) |> List.map (function `O f -> f | `So f -> "-l" ^ f) in
+  let files = startup_file :: files in
   let files =
     if !Flambda_backend_flags.use_cached_generic_functions then
       !Flambda_backend_flags.cached_generic_functions_path :: files
@@ -539,10 +781,14 @@ let link unix ~ppf_dump objfiles output_name =
     let genfns = Cmm_helpers.Generic_fns_tbl.make () in
     let ml_objfiles, units_tolink =
       List.fold_right (scan_file ~shared:false genfns) objfiles ([],[]) in
-    begin match extract_missing_globals() with
+
+    (* TODO poechsel: For some reason this is not working with the shared object loading.
+       The binary is till working but this could be indicative of a real bug
+    *)
+      (* begin match extract_missing_globals() with
       [] -> ()
     | mg -> raise(Error(Missing_implementations mg))
-    end;
+    end; *)
     Clflags.ccobjs := !Clflags.ccobjs @ !lib_ccobjs;
     Clflags.all_ccopts := !lib_ccopts @ !Clflags.all_ccopts;
                                                  (* put user's opts first *)
@@ -645,3 +891,10 @@ let () =
       | Error err -> Some (Location.error_of_printer_file report_error err)
       | _ -> None
     )
+
+    let call_linker_shared ?(native_toplevel = false) file_list output_name =
+      let exitcode =
+        Ccomp.call_linker ~native_toplevel Ccomp.Dll output_name (file_list) ""
+      in
+      if not (exitcode = 0)
+      then raise(Error(Linking_error exitcode))

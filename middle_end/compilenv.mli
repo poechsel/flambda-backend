@@ -122,6 +122,7 @@ val require_global: Compilation_unit.t -> unit
            unit to the required module *)
 
 val read_library_info: string -> library_infos
+val read_library_info_dynamic: string -> library_infos_dynamic
 
 (* CR mshinwell: see comment in .ml
 val ensure_sharing_between_cmi_and_cmx_imports :
