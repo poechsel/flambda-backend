@@ -516,6 +516,9 @@ let mk_restrict_to_upstream_dwarf f =
 let mk_no_restrict_to_upstream_dwarf f =
   "-gno-upstream-dwarf", Arg.Unit f, " Emit potentially more DWARF information than the upstream compiler"
 
+let mk_split_dwarf f =
+  "-gsplit-dwarf", Arg.Unit f, " Emit DWARF information in a separate file"
+
 let mk_dwarf_for_startup_file f =
   "-gstartup", Arg.Unit f, " Emit potentially more DWARF information\n\
     \     for the startup file than the upstream compiler\n\
@@ -999,6 +1002,7 @@ end
 module type Debugging_options = sig
   val restrict_to_upstream_dwarf : unit -> unit
   val no_restrict_to_upstream_dwarf : unit -> unit
+  val split_dwarf : unit -> unit
   val dwarf_for_startup_file : unit -> unit
   val no_dwarf_for_startup_file : unit -> unit
   val gdwarf_may_alter_codegen : unit -> unit
@@ -1010,6 +1014,7 @@ module Make_debugging_options (F : Debugging_options) = struct
   let list3 = [
     mk_restrict_to_upstream_dwarf F.restrict_to_upstream_dwarf;
     mk_no_restrict_to_upstream_dwarf F.no_restrict_to_upstream_dwarf;
+    mk_split_dwarf F.split_dwarf;
     mk_dwarf_for_startup_file F.dwarf_for_startup_file;
     mk_no_dwarf_for_startup_file F.no_dwarf_for_startup_file;
     mk_gdwarf_may_alter_codegen F.gdwarf_may_alter_codegen;
@@ -1023,6 +1028,8 @@ module Debugging_options_impl = struct
     Debugging.restrict_to_upstream_dwarf := true
   let no_restrict_to_upstream_dwarf () =
     Debugging.restrict_to_upstream_dwarf := false
+  let split_dwarf () =
+    Debugging.split_dwarf := false
   let dwarf_for_startup_file () =
     Debugging.dwarf_for_startup_file := true
   let no_dwarf_for_startup_file () =
