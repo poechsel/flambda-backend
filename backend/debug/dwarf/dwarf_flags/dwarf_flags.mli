@@ -45,6 +45,8 @@ type dwarf_version =
 
 val gdwarf_version : dwarf_version ref
 
+val split_dwarf : bool ref
+
 val default_gdwarf_version : dwarf_version
 
 val gdwarf_offsets : bool ref
