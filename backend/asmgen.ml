@@ -414,16 +414,16 @@ let compile_genfuns ~ppf_dump f =
        (Cmm_helpers.Generic_fns_tbl.of_fns
           (Compilenv.current_unit_infos ()).ui_generic_fns))
 
-let compile_unit ~output_prefix ~asm_filename ~keep_asm ~obj_filename ~may_reduce_heap
+let compile_unit ~output_prefix ~output ~keep_asm ~may_reduce_heap
         ~ppf_dump gen =
   reset ();
   let create_asm = should_emit () &&
                    (keep_asm || not !Emitaux.binary_backend_available) in
   X86_proc.create_asm_file := create_asm;
   Misc.try_finally
-    ~exceptionally:(fun () -> remove_file obj_filename)
+    ~exceptionally:(fun () -> Asm_output.remove_obj output)
     (fun () ->
-       if create_asm then Emitaux.output_channel := open_out asm_filename;
+       if create_asm then Emitaux.Output.redirect_to_file asm_filename;
        Misc.try_finally
          (fun () ->
             gen ();
@@ -432,7 +432,7 @@ let compile_unit ~output_prefix ~asm_filename ~keep_asm ~obj_filename ~may_reduc
               Checkmach.iter_witnesses;
             write_ir output_prefix)
          ~always:(fun () ->
-             if create_asm then close_out !Emitaux.output_channel)
+             if create_asm then Emitaux.Output.close ())
          ~exceptionally:(fun () ->
              if create_asm && not keep_asm then remove_file asm_filename);
        if should_emit () then begin
@@ -498,16 +498,10 @@ type pipeline =
     }
   | Direct_to_cmm of direct_to_cmm
 
-let asm_filename output_prefix =
-    if !keep_asm_file || !Emitaux.binary_backend_available
-    then output_prefix ^ ext_asm
-    else Filename.temp_file "camlasm" ext_asm
-
 let compile_implementation unix ?toplevel ~pipeline
       ~filename ~prefixname ~ppf_dump (program : Lambda.program) =
   compile_unit ~ppf_dump ~output_prefix:prefixname
-    ~asm_filename:(asm_filename prefixname) ~keep_asm:!keep_asm_file
-    ~obj_filename:(prefixname ^ ext_obj)
+    ~output:(Asm_output.create prefixname) ~keep_asm:!keep_asm_file
     ~may_reduce_heap:(Option.is_none toplevel)
     (fun () ->
       Compilation_unit.Set.iter Compilenv.require_global
@@ -547,8 +541,7 @@ let linear_gen_implementation unix filename =
 
 let compile_implementation_linear unix output_prefix ~progname =
   compile_unit ~may_reduce_heap:true ~output_prefix
-    ~asm_filename:(asm_filename output_prefix) ~keep_asm:!keep_asm_file
-    ~obj_filename:(output_prefix ^ ext_obj)
+    ~asm_filename:(Asm_output.create output_prefix) ~keep_asm:!keep_asm_file
     (fun () ->
       linear_gen_implementation unix progname)
 

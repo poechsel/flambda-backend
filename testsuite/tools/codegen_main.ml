@@ -19,7 +19,7 @@ let write_asm_file = ref false
 let compile_file filename =
   if !write_asm_file then begin
     let out_name = Filename.chop_extension filename ^ ".s" in
-    Emitaux.output_channel := open_out out_name
+    Emitaux.Output.redirect_to_file out_name
   end; (* otherwise, stdout *)
   let compilation_unit = "test" |> Compilation_unit.of_string in
   Compilenv.reset compilation_unit;
@@ -35,7 +35,7 @@ let compile_file filename =
   with
       End_of_file ->
         close_in ic; Emit.end_assembly ();
-        if !write_asm_file then close_out !Emitaux.output_channel
+        if !write_asm_file then Emitaux.Output.close ()
     | Lexcmm.Error msg ->
         close_in ic; Lexcmm.report_error lb msg
     | Parsing.Parse_error ->

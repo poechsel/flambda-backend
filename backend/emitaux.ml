@@ -22,18 +22,55 @@ type error =
 
 exception Error of error
 
-let output_channel = ref stdout
+module Destination = struct
+  type t =
+    | Main
+    | Split_dwarf
+end
 
-let emit_string s = output_string !output_channel s
 
-let emit_int n = output_string !output_channel (Int.to_string n)
+module Output = struct
+  type which = X86_proc.Destination.t =
+    | Main
+    | Split_dwarf
 
-let emit_char c = output_char !output_channel c
+  type t = { channel : Out_channel.t }
+  let main = ref { channel = stdout }
+  let split_dwarf = ref { channel = stdout }
 
-let emit_nativeint n = output_string !output_channel (Nativeint.to_string n)
+  let current = ref !main
+  let which = ref Main
+
+  let get_ref w =
+    match w with
+    | Main -> main
+    | Split_dwarf -> split_dwarf
+
+  let switch_to w =
+    which := w;
+    current := !(get_ref w)
+
+  let[@inline always] channel () = !current.channel
+  let channel' w = !(get_ref w).channel
+  let redirect_to_file filename =
+    (get_ref !which) := { channel = open_out filename };
+    (* At that point the point we're holding in [current] needs to be updated.
+       We do so by calling [switch_to] *)
+    switch_to !which
+
+  let close () = close_out (channel ())
+end
+
+let emit_string s = output_string (Output.channel ()) s
+
+let emit_int n = output_string (Output.channel ()) (Int.to_string n)
+
+let emit_char c = output_char (Output.channel ()) c
+
+let emit_nativeint n = output_string (Output.channel ()) (Nativeint.to_string n)
 
 let emit_printf fmt =
-  Printf.fprintf !output_channel fmt
+  Printf.fprintf (Output.channel ()) fmt
 
 let emit_int32 n = emit_printf "0x%lx" n
 
@@ -42,9 +79,9 @@ let emit_symbol esc s =
     let c = s.[i] in
     match c with
       'A'..'Z' | 'a'..'z' | '0'..'9' | '_' ->
-        output_char !output_channel c
+        output_char (Output.channel ()) c
     | _ ->
-        Printf.fprintf !output_channel "%c%02x" esc (Char.code c)
+        Printf.fprintf (Output.channel ()) "%c%02x" esc (Char.code c)
   done
 
 let emit_string_literal s =
@@ -54,13 +91,13 @@ let emit_string_literal s =
     let c = s.[i] in
     if c >= '0' && c <= '9' then
       if !last_was_escape
-      then Printf.fprintf !output_channel "\\%o" (Char.code c)
-      else output_char !output_channel c
+      then Printf.fprintf (Output.channel ()) "\\%o" (Char.code c)
+      else output_char (Output.channel ()) c
     else if c >= ' ' && c <= '~' && c <> '"' (* '"' *) && c <> '\\' then begin
-      output_char !output_channel c;
+      output_char (Output.channel ()) c;
       last_was_escape := false
     end else begin
-      Printf.fprintf !output_channel "\\%o" (Char.code c);
+      Printf.fprintf (Output.channel ()) "\\%o" (Char.code c);
       last_was_escape := true
     end
   done;

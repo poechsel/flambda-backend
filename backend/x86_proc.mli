@@ -18,6 +18,14 @@
 
 open X86_ast
 
+module Destination : sig
+  type t =
+    | Main
+    | Split_dwarf
+
+  val switch : t -> unit
+end
+
 (** Helpers for textual emitters *)
 
 val string_of_reg8l: reg64 -> string
@@ -49,7 +57,7 @@ val reset_asm_code: unit -> unit
 
 (** Code emission *)
 
-val generate_code: (X86_ast.asm_line list -> unit) option -> unit
+val generate_code: (Destination.t -> X86_ast.asm_line list -> unit) option -> unit
   (** Post-process the stream of instructions.  Dump it (using
       the provided syntax emitter) in a file (if provided) and
       compile it with an internal assembler (if registered

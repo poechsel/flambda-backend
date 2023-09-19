@@ -15,6 +15,16 @@
 
 open X86_ast
 
+module Destination = struct
+  type t =
+  | Main
+  | Split_dwarf
+
+  let current = ref Main
+  let switch next = current := next
+  let all = [ Main; Split_dwarf ]
+end
+
 module Section_name = struct
   module S = struct
     type t =
@@ -327,15 +337,42 @@ let assemble_file infile outfile =
   | None -> compile infile outfile
   | Some content -> content outfile; binary_content := None; 0
 
-let asm_code = ref []
-let asm_code_current_section = ref (ref [])
-let asm_code_by_section = Section_name.Tbl.create 100
-let delayed_sections = Section_name.Tbl.create 100
+module State = struct
+  type state = {
+    asm_code : X86_ast.asm_line list ref;
+    asm_code_current_section : X86_ast.asm_line list ref ref;
+    asm_code_by_section : X86_ast.asm_line list ref Section_name.Tbl.t;
+    delayed_sections : X86_ast.asm_line list ref Section_name.Tbl.t;
+  }
+
+  let reset t =
+    t.asm_code := [];
+    t.asm_code_current_section := ref [];
+    Section_name.Tbl.clear t.asm_code_by_section
+
+  let get =
+    let create () = {
+      asm_code = ref [];
+      asm_code_current_section = ref (ref []);
+      asm_code_by_section = Section_name.Tbl.create 100;
+      delayed_sections = Section_name.Tbl.create 100;
+    }
+    in
+    let main = create () in
+    let split_dwarf = create () in
+    function
+    | Destination.Main -> main
+    | Destination.Split_dwarf -> split_dwarf
+
+end
 
 (* Cannot use Emitaux directly here or there would be a circular dep *)
 let create_asm_file = ref true
 
 let directive dir =
+  let { State.asm_code; asm_code_current_section; asm_code_by_section; delayed_sections } =
+    State.get !Destination.current
+  in
   (if !create_asm_file then
      asm_code := dir :: !asm_code);
   match dir with
@@ -352,17 +389,22 @@ let directive dir =
 let emit ins = directive (Ins ins)
 
 let reset_asm_code () =
-  asm_code := [];
-  asm_code_current_section := ref [];
-  Section_name.Tbl.clear asm_code_by_section
+  List.iter (fun s -> State.reset (State.get s))  Destination.all
 
 let generate_code asm =
   begin match asm with
-  | Some f -> Profile.record ~accumulate:true "write_asm" f (List.rev !asm_code)
+  | Some f ->
+    List.iter (fun destination ->
+      let { State.asm_code; _ } = State.get destination in
+      Profile.record ~accumulate:true "write_asm" (f destination) (List.rev !asm_code)
+    ) Destination.all
   | None -> ()
   end;
   begin match !internal_assembler with
     | Some f ->
+      let { State.asm_code; asm_code_current_section; asm_code_by_section; delayed_sections } =
+        State.get !Destination.current
+      in
       let get sections =
          Section_name.Tbl.fold (fun name instrs acc ->
             (name, List.rev !instrs) :: acc)

@@ -15,7 +15,20 @@
 
 (* Common functions for emitting assembly code *)
 
-val output_channel: out_channel ref
+
+module Output : sig
+  type which = X86_proc.Destination.t =
+    | Main
+    | Split_dwarf
+
+  val switch_to : which -> unit
+
+  val channel : unit -> Out_channel.t
+  val channel' : which -> Out_channel.t
+  val redirect_to_file : string -> unit
+  val close : unit -> unit
+end
+
 val emit_string: string -> unit
 val emit_int: int -> unit
 val emit_nativeint: nativeint -> unit
@@ -123,4 +136,3 @@ end
 
 exception Error of error
 val report_error: Format.formatter -> error -> unit
-

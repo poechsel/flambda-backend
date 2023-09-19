@@ -167,6 +167,7 @@
   ;; asmcomp/
   afl_instrument
   arch
+  asm_output
   asmgen
   asmlibrarian
   asmlink
