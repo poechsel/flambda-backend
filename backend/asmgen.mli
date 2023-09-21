@@ -60,7 +60,8 @@ val compile_implementation_linear
   -> unit
 
 val compile_phrase
-  : ppf_dump:Format.formatter
+  : Asmgen_state.during_emit
+  -> ppf_dump:Format.formatter
   -> Cmm.phrase
   -> unit
 
@@ -79,5 +80,5 @@ val compile_unit
    -> obj_filename:string
    -> may_reduce_heap:bool
    -> ppf_dump:Format.formatter
-   -> (unit -> unit)
+   -> (Asmgen_state.before_emit -> Asmgen_state.waiting_to_be_assembled)
    -> unit

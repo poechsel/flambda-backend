@@ -1530,7 +1530,7 @@ let emit_function_type_and_size fun_name =
 
 (* Emission of a function declaration *)
 
-let fundecl fundecl =
+let fundecl _state fundecl =
   let fun_end_label, fundecl =
     match Emitaux.Dwarf_helpers.record_dwarf_for_fundecl fundecl with
     | None -> None, fundecl
@@ -1612,7 +1612,7 @@ let emit_item = function
   | Cskip n -> if n > 0 then D.space n
   | Calign n -> D.align ~data:true n
 
-let data l =
+let data _state l =
   D.data ();
   D.align ~data:true 8;
   List.iter emit_item l
@@ -1630,8 +1630,9 @@ let reset_all () =
   float_constants := [];
   all_functions := []
 
-let begin_assembly unix =
+let begin_assembly state unix =
   reset_all ();
+  let state = Asmgen_state.begin_emit state in
 
   if !Flambda_backend_flags.internal_assembler &&
      !Emitaux.binary_backend_available then
@@ -1683,7 +1684,7 @@ let begin_assembly unix =
   I.jmp (rel_plt (Cmm.global_symbol "caml_call_gc"));
   cfi_endproc ();
 
-  ()
+  state
 
 let make_stack_loc ~offset n (r : Reg.t) =
   (* Use "Outgoing" stack locations, instead of "Local",
@@ -2008,7 +2009,7 @@ let emit_trap_notes () =
     D.data ()
   end
 
-let end_assembly () =
+let end_assembly state =
   if !float_constants <> [] then begin
     begin match system with
     | S_macosx -> D.section ["__TEXT";"__literal8"] None ["8byte_literals"]
@@ -2121,4 +2122,6 @@ let end_assembly () =
   X86_proc.generate_code asm;
   (* The internal assembler does not work if reset_all is called here *)
   if not !Flambda_backend_flags.internal_assembler then
-    reset_all ()
+    reset_all ();
+
+  Asmgen_state.end_emit state

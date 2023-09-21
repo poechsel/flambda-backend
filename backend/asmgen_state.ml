@@ -2,10 +2,7 @@
 (*                                                                        *)
 (*                                 OCaml                                  *)
 (*                                                                        *)
-(*             Xavier Leroy, projet Cristal, INRIA Rocquencourt           *)
-(*                                                                        *)
-(*   Copyright 1996 Institut National de Recherche en Informatique et     *)
-(*     en Automatique.                                                    *)
+(*   Copyright 2023 Jane Street Group LLC                                 *)
 (*                                                                        *)
 (*   All rights reserved.  This file is distributed under the terms of    *)
 (*   the GNU Lesser General Public License version 2.1, with the          *)
@@ -13,12 +10,25 @@
 (*                                                                        *)
 (**************************************************************************)
 
-(* Generation of assembly code *)
+type 'state t =
+  | Do_not_emit : 'state t
+  | Emit : 'state t
 
-val fundecl: Asmgen_state.during_emit -> Linear.fundecl -> unit
-val data:  Asmgen_state.during_emit -> Cmm.data_item list -> unit
-val begin_assembly:
-       Asmgen_state.before_emit
-    -> (module Compiler_owee.Unix_intf.S)
-    -> Asmgen_state.during_emit
-val end_assembly: Asmgen_state.during_emit -> Asmgen_state.waiting_to_be_assembled
+type before_emit = [`Before_emit] t
+
+type during_emit = [`During_emit] t
+
+type waiting_to_be_assembled = [`Waiting_to_be_assembled] t
+
+let do_not_emit = Do_not_emit
+
+let create () = Emit
+
+let begin_emit = function Emit -> Emit | Do_not_emit -> Do_not_emit
+
+let end_emit = function Emit -> Emit | Do_not_emit -> Do_not_emit
+
+let assemble ~asm_filename ~obj_filename = function
+  | Emit ->
+    Profile.record "assemble" (Proc.assemble_file asm_filename) obj_filename
+  | Do_not_emit -> 0

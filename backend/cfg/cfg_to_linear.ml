@@ -454,6 +454,8 @@ let print_assembly (blocks : Cfg.basic_block list) =
       ~preserve_orig_labels:true
   in
   let fundecl = run cl in
+  let state = Asmgen_state.(begin_emit (create ())) in
   X86_proc.reset_asm_code ();
-  Emit.fundecl fundecl;
+  Emit.fundecl state fundecl;
+  let _state = Asmgen_state.end_emit state in
   X86_proc.generate_code (Some (X86_gas.generate_asm !Emitaux.output_channel))

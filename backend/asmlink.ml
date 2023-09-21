@@ -307,8 +307,8 @@ let scan_file ~shared genfns file (objfiles, tolink) =
 let named_startup_file () =
   !Clflags.keep_startup_file || !Emitaux.binary_backend_available
 
-let force_linking_of_startup ~ppf_dump =
-  Asmgen.compile_phrase ~ppf_dump
+let force_linking_of_startup state ~ppf_dump =
+  Asmgen.compile_phrase state ~ppf_dump
     (Cmm.Cdata ([Cmm.Csymbol_address (Cmm.global_symbol "caml_startup")]))
 
 let make_globals_map units_list =
@@ -341,7 +341,7 @@ let sourcefile_for_dwarf ~named_startup_file filename =
   if named_startup_file then filename
   else ".startup"
 
-let make_startup_file unix ~ppf_dump ~sourcefile_for_dwarf genfns units =
+let make_startup_file unix state ~ppf_dump ~sourcefile_for_dwarf genfns units =
   Location.input_name := "caml_startup"; (* set name of "current" input *)
   let startup_comp_unit =
     CU.create CU.Prefix.empty (CU.Name.of_string "_startup")
@@ -349,26 +349,26 @@ let make_startup_file unix ~ppf_dump ~sourcefile_for_dwarf genfns units =
   Compilenv.reset startup_comp_unit;
   Emitaux.Dwarf_helpers.init ~disable_dwarf:(not !Dwarf_flags.dwarf_for_startup_file)
     sourcefile_for_dwarf;
-  Emit.begin_assembly unix;
+  let state = Emit.begin_assembly state unix in
   let compile_phrase p = Asmgen.compile_phrase ~ppf_dump p in
   let name_list =
     List.flatten (List.map (fun u -> u.defines) units) in
-  List.iter compile_phrase (Cmm_helpers.entry_point name_list);
-  List.iter compile_phrase
+  List.iter (compile_phrase state) (Cmm_helpers.entry_point name_list);
+  List.iter (compile_phrase state)
     (Cmm_helpers.emit_preallocated_blocks []
       (Cmm_helpers.generic_functions false genfns));
   Array.iteri
-    (fun i name -> compile_phrase (Cmm_helpers.predef_exception i name))
+    (fun i name -> compile_phrase state (Cmm_helpers.predef_exception i name))
     Runtimedef.builtin_exceptions;
-  compile_phrase (Cmm_helpers.global_table name_list);
+  compile_phrase state (Cmm_helpers.global_table name_list);
   let globals_map = make_globals_map units in
-  compile_phrase (Cmm_helpers.globals_map globals_map);
+  compile_phrase state (Cmm_helpers.globals_map globals_map);
   let name_list =
     if !Flambda_backend_flags.use_cached_generic_functions then
       CU.create CU.Prefix.empty (CU.Name.of_string "_cached_generic_functions") :: name_list
     else name_list
   in
-  compile_phrase
+  compile_phrase state
     (Cmm_helpers.data_segment_table (startup_comp_unit :: name_list));
   (* CR mshinwell: We should have a separate notion of "backend compilation
      unit" really, since the units here don't correspond to .ml source
@@ -382,14 +382,14 @@ let make_startup_file unix ~ppf_dump ~sourcefile_for_dwarf genfns units =
     else
       startup_comp_unit :: name_list
   in
-  compile_phrase (Cmm_helpers.code_segment_table code_comp_units);
+  compile_phrase state (Cmm_helpers.code_segment_table code_comp_units);
   let all_comp_units = startup_comp_unit :: system_comp_unit :: name_list in
-  compile_phrase (Cmm_helpers.frame_table all_comp_units);
+  compile_phrase state (Cmm_helpers.frame_table all_comp_units);
   if !Clflags.output_complete_object then
-    force_linking_of_startup ~ppf_dump;
-  Emit.end_assembly ()
+    force_linking_of_startup state ~ppf_dump;
+  Emit.end_assembly state
 
-let make_shared_startup_file unix ~ppf_dump ~sourcefile_for_dwarf genfns units =
+let make_shared_startup_file unix state ~ppf_dump ~sourcefile_for_dwarf genfns units =
   let compile_phrase p = Asmgen.compile_phrase ~ppf_dump p in
   Location.input_name := "caml_startup";
   let shared_startup_comp_unit =
@@ -398,19 +398,19 @@ let make_shared_startup_file unix ~ppf_dump ~sourcefile_for_dwarf genfns units =
   Compilenv.reset shared_startup_comp_unit;
   Emitaux.Dwarf_helpers.init ~disable_dwarf:(not !Dwarf_flags.dwarf_for_startup_file)
     sourcefile_for_dwarf;
-  Emit.begin_assembly unix;
-  List.iter compile_phrase
+  let state = Emit.begin_assembly state unix in
+  List.iter (compile_phrase state)
     (Cmm_helpers.emit_preallocated_blocks []
       (Cmm_helpers.generic_functions true genfns));
   let dynunits = List.map (fun u -> Option.get u.dynunit) units in
-  compile_phrase (Cmm_helpers.plugin_header dynunits);
-  compile_phrase
+  compile_phrase state (Cmm_helpers.plugin_header dynunits);
+  compile_phrase state
     (Cmm_helpers.global_table (List.map (fun unit -> unit.name) units));
   if !Clflags.output_complete_object then
-    force_linking_of_startup ~ppf_dump;
+    force_linking_of_startup state ~ppf_dump;
   (* this is to force a reference to all units, otherwise the linker
      might drop some of them (in case of libraries) *)
-  Emit.end_assembly ()
+  Emit.end_assembly state
 
 let call_linker_shared ?(native_toplevel = false) file_list output_name =
   let exitcode =
@@ -443,8 +443,8 @@ let link_shared unix ~ppf_dump objfiles output_name =
       ~obj_filename:startup_obj
       ~may_reduce_heap:true
       ~ppf_dump
-      (fun () ->
-         make_shared_startup_file unix ~ppf_dump ~sourcefile_for_dwarf
+      (fun state ->
+         make_shared_startup_file unix state ~ppf_dump ~sourcefile_for_dwarf
            genfns units_tolink
       );
     call_linker_shared (startup_obj :: objfiles) output_name;
@@ -526,7 +526,7 @@ let link unix ~ppf_dump objfiles output_name =
       ~obj_filename:startup_obj
       ~may_reduce_heap:true
       ~ppf_dump
-      (fun () -> make_startup_file unix ~ppf_dump
+      (fun state -> make_startup_file unix state ~ppf_dump
                    ~sourcefile_for_dwarf genfns units_tolink);
     Emitaux.reduce_heap_size ~reset:(fun () -> reset ());
     Misc.try_finally

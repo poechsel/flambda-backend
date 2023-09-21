@@ -17,24 +17,28 @@ open Clflags
 let write_asm_file = ref false
 
 let compile_file filename =
-  if !write_asm_file then begin
-    let out_name = Filename.chop_extension filename ^ ".s" in
-    Emitaux.output_channel := open_out out_name
-  end; (* otherwise, stdout *)
+  let state =
+    if !write_asm_file then begin
+      let out_name = Filename.chop_extension filename ^ ".s" in
+      Emitaux.output_channel := open_out out_name
+    end; (* otherwise, stdout *)
+    Asmgen_state.create ()
+  in
   let compilation_unit = "test" |> Compilation_unit.of_string in
   Compilenv.reset compilation_unit;
-  Emit.begin_assembly (module Unix : Compiler_owee.Unix_intf.S);
+  let state = Emit.begin_assembly state (module Unix : Compiler_owee.Unix_intf.S) in
   let ic = open_in filename in
   let lb = Lexing.from_channel ic in
   lb.Lexing.lex_curr_p <- Lexing.{ lb.lex_curr_p with pos_fname = filename };
   try
     while true do
-      Asmgen.compile_phrase ~ppf_dump:Format.std_formatter
+      Asmgen.compile_phrase state ~ppf_dump:Format.std_formatter
         (Parsecmm.phrase Lexcmm.token lb)
     done
   with
       End_of_file ->
-        close_in ic; Emit.end_assembly ();
+        close_in ic;
+        let _state = Emit.end_assembly state in
         if !write_asm_file then close_out !Emitaux.output_channel
     | Lexcmm.Error msg ->
         close_in ic; Lexcmm.report_error lb msg

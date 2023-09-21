@@ -16,7 +16,9 @@ peephole/**/*.ml
 peephole/**/*.mli
 regalloc/**/*.ml
 regalloc/**/*.mli
-amd64/simd.ml 
-arm64/simd.ml 
-amd64/simd_selection.ml 
-arm64/simd_selection.ml 
+amd64/simd.ml
+arm64/simd.ml
+amd64/simd_selection.ml
+arm64/simd_selection.ml
+asmgen_state.ml
+asmgen_state.mli

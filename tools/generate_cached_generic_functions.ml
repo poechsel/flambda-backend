@@ -30,19 +30,19 @@ open Config
 
 module CU = Compilation_unit
 
-let make_cached_generic_functions unix ~ppf_dump genfns =
+let make_cached_generic_functions unix state ~ppf_dump genfns =
   Location.input_name := "caml_cached_generic_functions"; (* set name of "current" input *)
   let startup_comp_unit =
     CU.create CU.Prefix.empty (CU.Name.of_string "_cached_generic_functions")
   in
   Compilenv.reset startup_comp_unit;
-  Emit.begin_assembly unix;
-  let compile_phrase p = Asmgen.compile_phrase ~ppf_dump p in
+  let state = Emit.begin_assembly state unix in
+  let compile_phrase p = Asmgen.compile_phrase state ~ppf_dump p in
   Profile.record_call "genfns" (fun () ->
   List.iter compile_phrase
     (Cmm_helpers.emit_preallocated_blocks []
       (Cmm_helpers.generic_functions false genfns)));
-  Emit.end_assembly ()
+  Emit.end_assembly state
 
 let cached_generic_functions unix ~ppf_dump output_name genfns =
   Profile.record_call output_name (fun () ->
@@ -54,8 +54,8 @@ let cached_generic_functions unix ~ppf_dump output_name genfns =
         ~obj_filename
         ~may_reduce_heap:true
         ~ppf_dump
-        (fun () ->
-          make_cached_generic_functions unix ~ppf_dump genfns);
+        (fun state ->
+          make_cached_generic_functions unix state ~ppf_dump genfns);
       obj_filename
     );
   )

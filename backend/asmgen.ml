@@ -166,21 +166,23 @@ let should_use_linscan fd =
   !use_linscan ||
   List.mem Cmm.Use_linscan_regalloc fd.Mach.fun_codegen_options
 
-let if_emit_do f x = if should_emit () then f x else ()
-let emit_begin_assembly unix = if_emit_do Emit.begin_assembly unix
-let emit_end_assembly filename () =
-  if_emit_do (fun () ->
-    try Emit.end_assembly ()
+let if_emit_do state f x = if should_emit () then f state x else Asmgen_state.do_not_emit
+let if_emit_do' state f x = if should_emit () then f state x else ()
+let emit_begin_assembly state unix = if_emit_do state Emit.begin_assembly unix
+let emit_end_assembly state filename () =
+  if_emit_do state (fun state () ->
+    try Emit.end_assembly state
      with Emitaux.Error e ->
        raise (Error (Asm_generation(filename, e))))
     ()
 
-let emit_data dl = if_emit_do Emit.data dl
-let emit_fundecl f =
-  if_emit_do
-    (fun (fundecl : Linear.fundecl) ->
+let emit_data state dl = if_emit_do' state Emit.data dl
+let emit_fundecl state f =
+  if_emit_do'
+    state
+    (fun state (fundecl : Linear.fundecl) ->
       try
-        Profile.record ~accumulate:true "emit" Emit.fundecl fundecl
+        Profile.record ~accumulate:true "emit" (Emit.fundecl state) fundecl
     with Emitaux.Error e ->
       raise (Error (Asm_generation(fundecl.Linear.fun_name, e))))
     f
@@ -263,7 +265,7 @@ let register_allocator fd : register_allocator =
   | "" -> default_allocator
   | other -> Misc.fatal_errorf "unknown register allocator (%S)" other
 
-let compile_fundecl ~ppf_dump ~funcnames fd_cmm =
+let compile_fundecl state ~ppf_dump ~funcnames fd_cmm =
   Proc.init ();
   Reg.reset();
   fd_cmm
@@ -369,14 +371,14 @@ let compile_fundecl ~ppf_dump ~funcnames fd_cmm =
   ++ Profile.record ~accumulate:true "scheduling" Scheduling.fundecl
   ++ pass_dump_linear_if ppf_dump dump_scheduling "After instruction scheduling"
   ++ Profile.record ~accumulate:true "save_linear" save_linear
-  ++ Profile.record ~accumulate:true "emit_fundecl" emit_fundecl
+  ++ Profile.record ~accumulate:true "emit_fundecl" (emit_fundecl state)
 
-let compile_data dl =
+let compile_data state dl =
   dl
   ++ save_data
-  ++ emit_data
+  ++ emit_data state
 
-let compile_phrases ~ppf_dump ps =
+let compile_phrases state ~ppf_dump ps =
     let funcnames =
       List.fold_left (fun s p ->
           match p with
@@ -391,24 +393,24 @@ let compile_phrases ~ppf_dump ps =
           if !dump_cmm then fprintf ppf_dump "%a@." Printcmm.phrase p;
           match p with
           | Cfunction fd ->
-            compile_fundecl ~ppf_dump ~funcnames fd;
+            compile_fundecl state ~ppf_dump ~funcnames fd;
             compile ~funcnames:(String.Set.remove fd.fun_name.sym_name funcnames) ps
           | Cdata dl ->
-            compile_data dl;
+            compile_data state dl;
             compile ~funcnames ps
     in
     compile ~funcnames ps
 
-let compile_phrase ~ppf_dump p =
-  compile_phrases ~ppf_dump [p]
+let compile_phrase state ~ppf_dump p =
+  compile_phrases state ~ppf_dump [p]
 
 (* For the native toplevel: generates generic functions unless
    they are already available in the process *)
-let compile_genfuns ~ppf_dump f =
+let compile_genfuns state ~ppf_dump f =
   List.iter
     (function
        | (Cfunction {fun_name = name}) as ph when f name.sym_name ->
-           compile_phrase ~ppf_dump ph
+           compile_phrase state ~ppf_dump ph
        | _ -> ())
     (Cmm_helpers.generic_functions true
        (Cmm_helpers.Generic_fns_tbl.of_fns
@@ -420,21 +422,25 @@ let compile_unit ~output_prefix ~asm_filename ~keep_asm ~obj_filename ~may_reduc
   let create_asm = should_emit () &&
                    (keep_asm || not !Emitaux.binary_backend_available) in
   X86_proc.create_asm_file := create_asm;
+  let state = Asmgen_state.create () in
   Misc.try_finally
     ~exceptionally:(fun () -> remove_file obj_filename)
     (fun () ->
        if create_asm then Emitaux.output_channel := open_out asm_filename;
-       Misc.try_finally
-         (fun () ->
-            gen ();
-            Checkmach.record_unit_info ppf_dump;
-            Compiler_hooks.execute Compiler_hooks.Check_allocations
-              Checkmach.iter_witnesses;
-            write_ir output_prefix)
-         ~always:(fun () ->
-             if create_asm then close_out !Emitaux.output_channel)
-         ~exceptionally:(fun () ->
-             if create_asm && not keep_asm then remove_file asm_filename);
+       let state =
+        Misc.try_finally
+          (fun () ->
+              let state = gen state in
+              Checkmach.record_unit_info ppf_dump;
+              Compiler_hooks.execute Compiler_hooks.Check_allocations
+                Checkmach.iter_witnesses;
+              write_ir output_prefix;
+              state)
+          ~always:(fun () ->
+              if create_asm then close_out !Emitaux.output_channel)
+          ~exceptionally:(fun () ->
+              if create_asm && not keep_asm then remove_file asm_filename);
+       in
        if should_emit () then begin
          if may_reduce_heap then
            Emitaux.reduce_heap_size ~reset:(fun () ->
@@ -445,36 +451,33 @@ let compile_unit ~output_prefix ~asm_filename ~keep_asm ~obj_filename ~may_reduc
             Typemod.reset ~preserve_persistent_env:true;
             Emitaux.reset ();
             Reg.reset ());
-         let assemble_result =
-           Profile.record "assemble"
-             (Proc.assemble_file asm_filename) obj_filename
-         in
+         let assemble_result = Asmgen_state.assemble ~asm_filename ~obj_filename state in
          if assemble_result <> 0
          then raise(Error(Assembler_error asm_filename));
        end;
        if create_asm && not keep_asm then remove_file asm_filename
     )
 
-let end_gen_implementation unix ?toplevel ~ppf_dump ~sourcefile make_cmm =
+let end_gen_implementation unix state ?toplevel ~ppf_dump ~sourcefile make_cmm =
   Emitaux.Dwarf_helpers.init ~disable_dwarf:false sourcefile;
-  emit_begin_assembly unix;
+  let state = emit_begin_assembly state unix in
   make_cmm ()
   ++ Compiler_hooks.execute_and_pipe Compiler_hooks.Cmm
-  ++ Profile.record "compile_phrases" (compile_phrases ~ppf_dump)
+  ++ Profile.record "compile_phrases" (compile_phrases state ~ppf_dump)
   ++ (fun () -> ());
-  (match toplevel with None -> () | Some f -> compile_genfuns ~ppf_dump f);
+  (match toplevel with None -> () | Some f -> compile_genfuns state ~ppf_dump f);
   (* We add explicit references to external primitive symbols.  This
      is to ensure that the object files that define these symbols,
      when part of a C library, won't be discarded by the linker.
      This is important if a module that uses such a symbol is later
      dynlinked. *)
-  compile_phrase ~ppf_dump
+  compile_phrase state ~ppf_dump
     (Cmm_helpers.reference_symbols
        (List.filter_map (fun prim ->
            if not (Primitive.native_name_is_external prim) then None
            else Some (Cmm.global_symbol (Primitive.native_name prim)))
           !Translmod.primitive_declarations));
-  emit_end_assembly sourcefile ()
+  emit_end_assembly state sourcefile ()
 
 type middle_end =
      backend:(module Backend_intf.S)
@@ -509,7 +512,7 @@ let compile_implementation unix ?toplevel ~pipeline
     ~asm_filename:(asm_filename prefixname) ~keep_asm:!keep_asm_file
     ~obj_filename:(prefixname ^ ext_obj)
     ~may_reduce_heap:(Option.is_none toplevel)
-    (fun () ->
+    (fun state ->
       Compilation_unit.Set.iter Compilenv.require_global
         program.required_globals;
       match pipeline with
@@ -517,16 +520,16 @@ let compile_implementation unix ?toplevel ~pipeline
         let clambda_with_constants =
           middle_end ~backend ~filename ~prefixname ~ppf_dump program
         in
-        end_gen_implementation unix ?toplevel ~ppf_dump ~sourcefile:filename
+        end_gen_implementation unix state ?toplevel ~ppf_dump ~sourcefile:filename
           (fun () -> Profile.record "cmm" Cmmgen.compunit clambda_with_constants)
       | Direct_to_cmm direct_to_cmm ->
         let cmm_phrases =
           direct_to_cmm ~ppf_dump ~prefixname ~filename program
         in
-        end_gen_implementation unix ?toplevel ~ppf_dump ~sourcefile:filename
+        end_gen_implementation unix state ?toplevel ~ppf_dump ~sourcefile:filename
           (fun () -> cmm_phrases))
 
-let linear_gen_implementation unix filename =
+let linear_gen_implementation unix state filename =
   let open Linear_format in
   let linear_unit_info, _ = restore filename in
   let current_package = Compilation_unit.Prefix.from_clflags () in
@@ -535,22 +538,22 @@ let linear_gen_implementation unix filename =
   in
   if not (Compilation_unit.Prefix.equal current_package saved_package)
   then raise(Error(Mismatched_for_pack saved_package));
-  let emit_item = function
-    | Data dl -> emit_data dl
-    | Func f -> emit_fundecl f
+  let emit_item state = function
+    | Data dl -> emit_data state dl
+    | Func f -> emit_fundecl state f
   in
   start_from_emit := true;
   Emitaux.Dwarf_helpers.init ~disable_dwarf:false filename;
-  emit_begin_assembly unix;
-  Profile.record "Emit" (List.iter emit_item) linear_unit_info.items;
-  emit_end_assembly filename ()
+  let state = emit_begin_assembly state unix in
+  Profile.record "Emit" (List.iter (emit_item state)) linear_unit_info.items;
+  emit_end_assembly state filename ()
 
 let compile_implementation_linear unix output_prefix ~progname =
   compile_unit ~may_reduce_heap:true ~output_prefix
     ~asm_filename:(asm_filename output_prefix) ~keep_asm:!keep_asm_file
     ~obj_filename:(output_prefix ^ ext_obj)
-    (fun () ->
-      linear_gen_implementation unix progname)
+    (fun state ->
+      linear_gen_implementation unix state progname)
 
 (* Error report *)
 
