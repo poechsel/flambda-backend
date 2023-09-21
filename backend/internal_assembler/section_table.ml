@@ -19,7 +19,7 @@
    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
    SOFTWARE. *)
-module Section_name = X86_proc.Section_name
+module X86_section_name = X86_section_name
 
 type section_body =
   { offset : int;
@@ -29,7 +29,7 @@ type section_body =
 type t =
   { mutable sections : Compiler_owee.Owee_elf.section list;
     mutable num_sections : int;
-    section_tb : int Section_name.Tbl.t;
+    section_tb : int X86_section_name.Tbl.t;
     mutable section_bodies : section_body list;
     mutable current_offset : int64
   }
@@ -51,14 +51,14 @@ let create () =
           sh_name_str = ""
         } ];
     num_sections = 1;
-    section_tb = Section_name.Tbl.create 100;
+    section_tb = X86_section_name.Tbl.create 100;
     section_bodies = [];
     current_offset = 64L
   }
 
 let add_section t name ?body section =
   t.sections <- section :: t.sections;
-  Section_name.Tbl.add t.section_tb name t.num_sections;
+  X86_section_name.Tbl.add t.section_tb name t.num_sections;
   t.num_sections <- t.num_sections + 1;
   t.current_offset <- Int64.add t.current_offset section.sh_size;
   match body with
@@ -71,18 +71,18 @@ let current_offset t = t.current_offset
 
 let num_sections t = t.num_sections
 
-let get_sec_idx t name = Section_name.Tbl.find t.section_tb name
+let get_sec_idx t name = X86_section_name.Tbl.find t.section_tb name
 
 let get_section t name =
   List.find
     (fun section ->
-      String.equal section.sh_name_str (X86_proc.Section_name.to_string name))
+      String.equal section.sh_name_str (X86_section_name.to_string name))
     t.sections
 
 let get_section_opt t name =
   List.find_opt
     (fun section ->
-      String.equal section.sh_name_str (X86_proc.Section_name.to_string name))
+      String.equal section.sh_name_str (X86_section_name.to_string name))
     t.sections
 
 let get_sections t = Array.of_list (List.rev t.sections)

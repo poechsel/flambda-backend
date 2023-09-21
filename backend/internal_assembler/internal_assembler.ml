@@ -20,7 +20,7 @@
    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
    SOFTWARE. *)
 module String = Misc.Stdlib.String
-module Section_name = X86_proc.Section_name
+module X86_section_name = X86_section_name
 module StringMap = X86_binary_emitter.StringMap
 
 let isprefix s1 s2 =
@@ -62,7 +62,7 @@ let create_section name ~sh_type ~size ~offset ?align ?entsize ?flags ?sh_link
   let sh_flags = Option.value ~default:0L flags in
   let sh_link = Option.value ~default:0 sh_link in
   let sh_info = Option.value ~default:0 sh_info in
-  let sh_name_str = X86_proc.Section_name.to_string name in
+  let sh_name_str = X86_section_name.to_string name in
   let section : Compiler_owee.Owee_elf.section =
     { sh_name = String_table.current_length shstrtab;
       sh_type;
@@ -104,7 +104,7 @@ let make_data sections name raw_section ~align sh_string_table =
 let make_shstrtab sections sh_string_table =
   let name = ".shstrtab" in
   make_section sections
-    (Section_name.of_string name)
+    (X86_section_name.of_string name)
     ~sh_type:3
     ~size:
       (Int64.of_int
@@ -135,8 +135,8 @@ let parse_flags flags =
   inner 0L (String.to_seq flags ())
 
 let make_custom_section sections name raw_section sh_string_table =
-  let flags = parse_flags (X86_proc.Section_name.flags name) in
-  let align = X86_proc.Section_name.alignment name in
+  let flags = parse_flags (X86_section_name.flags name) in
+  let align = X86_section_name.alignment name in
   make_section sections name
     ~size:(Int64.of_int (X86_binary_emitter.size raw_section))
     ~align ~flags
@@ -152,7 +152,7 @@ let make_relocation_section sections ~sym_tbl_idx relocation_table
   in
   let idx = Section_table.get_sec_idx sections name in
   make_section sections
-    (Section_name.of_string (".rela" ^ Section_name.to_string name))
+    (X86_section_name.of_string (".rela" ^ X86_section_name.to_string name))
     ~sh_type:4 (* SHT_RELA *) ~size ~entsize:24L
     ~flags:0x40L (* SHF_INFO_LINK *) ~sh_link:sym_tbl_idx sh_string_table
     ~align:8L ~sh_info:idx
@@ -166,14 +166,14 @@ let assemble_one_section ~name instructions =
   in
   align,
   X86_binary_emitter.assemble_section X64
-    { X86_binary_emitter.sec_name = X86_proc.Section_name.to_string name;
+    { X86_binary_emitter.sec_name = X86_section_name.to_string name;
       sec_instrs = Array.of_list instructions
     }
 
 let get_sections ~delayed sections =
   let get acc sections =
     List.fold_left (fun acc (name, instructions) ->
-      Section_name.Map.add name (assemble_one_section ~name instructions) acc)
+      X86_section_name.Map.add name (assemble_one_section ~name instructions) acc)
       acc sections
   in
   (* DWARF sections must be emitted after .text and .data because they
@@ -182,28 +182,28 @@ let get_sections ~delayed sections =
      from the start of the .text section.
      Additionally, DWARF sections may add relocations to the object file's
      relocation table. *)
-  let acc = Section_name.Map.empty in
+  let acc = X86_section_name.Map.empty in
   let acc = get acc sections in
   Emitaux.Dwarf_helpers.emit_delayed_dwarf ();
   get acc (delayed ())
 
 let make_compiler_sections section_table compiler_sections symbol_table
     sh_string_table =
-  let section_symbols = Section_name.Tbl.create 100 in
-  Section_name.Map.iter
+  let section_symbols = X86_section_name.Tbl.create 100 in
+  X86_section_name.Map.iter
     (fun name (align, raw_section) ->
-      if Section_name.is_text_like name
+      if X86_section_name.is_text_like name
       then
         make_text section_table name raw_section ~align:(Int64.of_int align)
           sh_string_table
-      else if Section_name.is_data_like name
+      else if X86_section_name.is_data_like name
       then
         make_data section_table name raw_section ~align:(Int64.of_int align)
           sh_string_table
       else
         make_custom_section section_table name raw_section ~sh_type:1
           (* SHT_PROGBITS *) sh_string_table;
-      Section_name.Tbl.add section_symbols name
+      X86_section_name.Tbl.add section_symbols name
         (Symbol_table.make_section_symbol symbol_table
            (Section_table.num_sections section_table - 1)
            section_table))
@@ -212,7 +212,7 @@ let make_compiler_sections section_table compiler_sections symbol_table
 
 let make_symbols section_tables compiler_sections symbol_table section_symbols
     string_table =
-  Section_name.Map.iter
+  X86_section_name.Map.iter
     (fun section (align, raw_section) ->
       let symbols = X86_binary_emitter.labels raw_section in
       String.Tbl.iter
@@ -220,7 +220,7 @@ let make_symbols section_tables compiler_sections symbol_table section_symbols
           match is_label name with
           | true ->
             Symbol_table.add_label symbol_table symbol
-              (Section_name.Tbl.find section_symbols section)
+              (X86_section_name.Tbl.find section_symbols section)
           | false ->
             Symbol_table.make_symbol symbol_table symbol section_tables
               string_table)
@@ -239,18 +239,18 @@ let create_relocation_tables compiler_sections symbol_table string_table =
                symbol_table string_table)
            l;
          Some relocation_table))
-    (Section_name.Map.bindings compiler_sections)
+    (X86_section_name.Map.bindings compiler_sections)
 
 let write buf header section_table symbol_table relocation_tables string_table =
   Compiler_owee.Owee_elf.write_elf buf header (Section_table.get_sections section_table);
   Section_table.write_bodies section_table buf;
   let symtab =
     Section_table.get_section section_table
-      (X86_proc.Section_name.make [".symtab"] None [])
+      (X86_section_name.make [".symtab"] None [])
   in
   let strtab =
     Section_table.get_section section_table
-      (X86_proc.Section_name.make [".strtab"] None [])
+      (X86_section_name.make [".strtab"] None [])
   in
   Symbol_table.write symbol_table symtab.sh_offset buf;
   List.iter
@@ -286,12 +286,12 @@ let assemble unix ~delayed asm output_file =
   let num_locals = Symbol_table.num_locals symbol_table in
   let strtabidx = 1 + Section_table.num_sections sections in
   make_section sections
-    (Section_name.of_string ".symtab")
+    (X86_section_name.of_string ".symtab")
     ~sh_type:2 (* SHT_PROGBITS *) ~entsize:24L (* symbol entry size *)
     ~size:(Int64.of_int (24 * Symbol_table.num_symbols symbol_table))
     ~align:8L ~sh_link:strtabidx ~sh_info:num_locals sh_string_table;
   make_section sections
-    (Section_name.of_string ".strtab")
+    (X86_section_name.of_string ".strtab")
     ~sh_type:3 (* SHT_STRTAB *)
     ~size:(Int64.of_int (String_table.current_length string_table))
     sh_string_table;

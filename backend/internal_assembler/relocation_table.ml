@@ -22,7 +22,7 @@
 type relocation
 
 type t =
-  { section : X86_proc.Section_name.t;
+  { section : X86_section_name.t;
     mutable relocations : Relocation_entry.t list
   }
 
@@ -42,8 +42,8 @@ let section_name t = t.section
 let write t section_table buf =
   match
     Section_table.get_section_opt section_table
-      (X86_proc.Section_name.of_string
-         (".rela" ^ X86_proc.Section_name.to_string t.section))
+      (X86_section_name.of_string
+         (".rela" ^ X86_section_name.to_string t.section))
   with
   | Some table ->
     List.iteri

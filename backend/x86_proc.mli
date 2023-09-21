@@ -91,30 +91,13 @@ val windows:bool
 (** Whether calls need to go via the PLT. *)
 val use_plt : bool
 
-module Section_name : sig
-  type t
-  val equal : t -> t -> bool
-  val hash : t -> int
-  val compare : t -> t -> int
-  val make : string list -> string option -> string list -> t
-  val of_string : string -> t
-  val to_string : t -> string
-  val flags : t -> string option
-  val alignment : t -> int64
-  val is_text_like : t -> bool
-  val is_data_like : t -> bool
-
-  module Map : Map.S with type key = t
-  module Tbl : Hashtbl.S with type key = t
-end
-
 (** Support for plumbing a binary code emitter *)
 
 val internal_assembler :
-  (delayed:(unit -> (Section_name.t * X86_ast.asm_program) list)
-    -> (Section_name.t * X86_ast.asm_program) list
+  (delayed:(unit -> (X86_section_name.t * X86_ast.asm_program) list)
+    -> (X86_section_name.t * X86_ast.asm_program) list
     -> string -> unit) option ref
 
 val register_internal_assembler :
-  (delayed:(unit -> (Section_name.t * X86_ast.asm_program) list)
-   -> (Section_name.t * X86_ast.asm_program) list -> string -> unit) -> unit
+  (delayed:(unit -> (X86_section_name.t * X86_ast.asm_program) list)
+   -> (X86_section_name.t * X86_ast.asm_program) list -> string -> unit) -> unit

@@ -22,7 +22,7 @@
 (** Construction of ELF relocation tables. **)
 type t
 
-val create : X86_proc.Section_name.t -> t
+val create : X86_section_name.t -> t
 
 val make_relocation :
   t ->
@@ -33,6 +33,6 @@ val make_relocation :
 
 val num_relocations : t -> int
 
-val section_name : t -> X86_proc.Section_name.t
+val section_name : t -> X86_section_name.t
 
 val write : t -> Section_table.t -> Compiler_owee.Owee_buf.t -> unit

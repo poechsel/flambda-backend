@@ -22,3 +22,5 @@ amd64/simd_selection.ml
 arm64/simd_selection.ml
 asmgen_state.ml
 asmgen_state.mli
+x86_section_name.ml
+x86_section_name.mli

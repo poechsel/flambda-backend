@@ -231,6 +231,7 @@
   x86_gas
   x86_masm
   x86_proc
+  x86_section_name
   fdo_info
   ;; asmcomp/cfg
   cfg
