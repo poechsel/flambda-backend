@@ -38,29 +38,6 @@ val string_of_prefetch_temporal_locality_hint:
 val buf_bytes_directive:
   Buffer.t -> (*directive*) string -> (*data*)string -> unit
 
-
-(** Buffer of assembly code *)
-
-val create_asm_file: bool ref
-
-val emit: instruction -> unit
-val directive: asm_line -> unit
-val reset_asm_code: unit -> unit
-
-(** Code emission *)
-
-val generate_code: (X86_ast.asm_line list -> unit) option -> unit
-  (** Post-process the stream of instructions.  Dump it (using
-      the provided syntax emitter) in a file (if provided) and
-      compile it with an internal assembler (if registered
-      through [register_internal_assembler]). *)
-
-val assemble_file: (*infile*) string -> (*outfile*) string -> (*retcode*) int
-(** Generate an object file corresponding to the last call to
-    [generate_code].  An internal assembler is used if available (and
-    the input file is ignored). Otherwise, the source asm file with an
-    external assembler. *)
-
 (** System detection *)
 
 type system =
@@ -91,13 +68,4 @@ val windows:bool
 (** Whether calls need to go via the PLT. *)
 val use_plt : bool
 
-(** Support for plumbing a binary code emitter *)
-
-val internal_assembler :
-  (delayed:(unit -> (X86_section_name.t * X86_ast.asm_program) list)
-    -> (X86_section_name.t * X86_ast.asm_program) list
-    -> string -> unit) option ref
-
-val register_internal_assembler :
-  (delayed:(unit -> (X86_section_name.t * X86_ast.asm_program) list)
-   -> (X86_section_name.t * X86_ast.asm_program) list -> string -> unit) -> unit
+val compile: string -> string -> int

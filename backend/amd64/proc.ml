@@ -701,9 +701,6 @@ let slot_offset loc ~stack_class ~stack_offset ~fun_contains_calls
 
 (* Calling the assembler *)
 
-let assemble_file infile outfile =
-  X86_proc.assemble_file infile outfile
-
 let init () =
   if fp then begin
     num_available_registers.(0) <- 12

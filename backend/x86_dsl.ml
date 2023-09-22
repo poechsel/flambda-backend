@@ -74,6 +74,9 @@ let mem64 typ ?(scale = 1) ?base ?sym displ idx =
 let mem64_rip typ ?(ofs = 0) s =
   Mem64_RIP (typ, s, ofs)
 
+let directive = Asmgen_state.For_x86.directive
+let emit = Asmgen_state.For_x86.emit
+
 module D = struct
   let section ?(delayed=false) segment flags args = directive (Section (segment, flags, args, delayed))
   let align ~data n = directive (Align (data, n))

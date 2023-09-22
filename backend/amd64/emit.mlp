@@ -1620,7 +1620,6 @@ let data _state l =
 (* Beginning / end of an assembly file *)
 
 let reset_all () =
-  X86_proc.reset_asm_code ();
   Emitaux.reset ();
   reset_debug_info();                   (* PR#5603 *)
   reset_imp_table();
@@ -1633,10 +1632,6 @@ let reset_all () =
 let begin_assembly state unix =
   reset_all ();
   let state = Asmgen_state.begin_emit state in
-
-  if !Flambda_backend_flags.internal_assembler &&
-     !Emitaux.binary_backend_available then
-    X86_proc.register_internal_assembler (Internal_assembler.assemble unix);
 
   let code_begin = Cmm_helpers.make_symbol "code_begin" in
   let code_end = Cmm_helpers.make_symbol "code_end" in
@@ -2107,21 +2102,8 @@ let end_assembly state =
     symbols_defined := String.Set.empty;
   end;
 
-  let asm =
-    if !X86_proc.create_asm_file then
-      Some
-        (
-         (if X86_proc.masm then X86_masm.generate_asm
-          else X86_gas.generate_asm) !Emitaux.output_channel
-        )
-    else
-      None
-  in
-  if not !Flambda_backend_flags.internal_assembler then
-    Emitaux.Dwarf_helpers.emit_dwarf ();
-  X86_proc.generate_code asm;
+  let state = Asmgen_state.end_emit state in
   (* The internal assembler does not work if reset_all is called here *)
   if not !Flambda_backend_flags.internal_assembler then
     reset_all ();
-
-  Asmgen_state.end_emit state
+  state

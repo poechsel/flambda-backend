@@ -225,7 +225,7 @@ let compile_unit ~output_prefix ~asm_filename ~keep_asm ~obj_filename gen =
        if should_emit () then begin
          let assemble_result =
            Profile.record "assemble"
-             (Proc.assemble_file asm_filename) obj_filename
+             (Asmgen_state.assemble state) obj_filename
          in
          if assemble_result <> 0
          then raise(Error(Assembler_error asm_filename));

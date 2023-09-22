@@ -438,7 +438,7 @@ let link_shared unix ~ppf_dump objfiles output_name =
       else Filename.temp_file "camlstartup" ext_asm in
     let startup_obj = output_name ^ ".startup" ^ ext_obj in
     let sourcefile_for_dwarf = sourcefile_for_dwarf ~named_startup_file startup in
-    Asmgen.compile_unit ~output_prefix:output_name
+    Asmgen.compile_unit unix ~output_prefix:output_name
       ~asm_filename:startup ~keep_asm:!Clflags.keep_startup_file
       ~obj_filename:startup_obj
       ~may_reduce_heap:true
@@ -521,7 +521,7 @@ let link unix ~ppf_dump objfiles output_name =
       else Filename.temp_file "camlstartup" ext_asm in
     let sourcefile_for_dwarf = sourcefile_for_dwarf ~named_startup_file startup in
     let startup_obj = Filename.temp_file "camlstartup" ext_obj in
-    Asmgen.compile_unit ~output_prefix:output_name
+    Asmgen.compile_unit unix ~output_prefix:output_name
       ~asm_filename:startup ~keep_asm:!Clflags.keep_startup_file
       ~obj_filename:startup_obj
       ~may_reduce_heap:true

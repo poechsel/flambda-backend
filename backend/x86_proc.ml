@@ -249,9 +249,6 @@ let imm_of_rounding = function
   | RoundTruncate -> Imm 11L
   | RoundCurrent -> Imm 12L
 
-let internal_assembler = ref None
-let register_internal_assembler f = internal_assembler := Some f
-
 (* Which asm conventions to use *)
 let masm =
   match system with
@@ -263,71 +260,14 @@ let use_plt =
   | S_macosx | S_mingw64 | S_cygwin | S_win64 -> false
   | _ -> !Clflags.dlcode
 
-(* Shall we use an external assembler command ?
-   If [binary_content] contains some data, we can directly
-   save it. Otherwise, we have to ask an external command.
-*)
-let binary_content = ref None
-
 let compile infile outfile =
-  if masm then
-    Ccomp.command (Config.asm ^
-                   Filename.quote outfile ^ " " ^ Filename.quote infile ^
-                   (if !Clflags.verbose then "" else ">NUL"))
+  if masm
+  then
+    Ccomp.command
+      (Config.asm ^ Filename.quote outfile ^ " " ^ Filename.quote infile
+      ^ if !Clflags.verbose then "" else ">NUL")
   else
-    Ccomp.command (Config.asm ^ " " ^
-                   (String.concat " " (Misc.debug_prefix_map_flags ())) ^
-                   " -o " ^ Filename.quote outfile ^ " " ^
-                   Filename.quote infile)
-
-let assemble_file infile outfile =
-  match !binary_content with
-  | None -> compile infile outfile
-  | Some content -> content outfile; binary_content := None; 0
-
-let asm_code = ref []
-let asm_code_current_section = ref (ref [])
-let asm_code_by_section = X86_section_name.Tbl.create 100
-let delayed_sections = X86_section_name.Tbl.create 100
-
-(* Cannot use Emitaux directly here or there would be a circular dep *)
-let create_asm_file = ref true
-
-let directive dir =
-  (if !create_asm_file then
-     asm_code := dir :: !asm_code);
-  match dir with
-  | Section (name, flags, args, is_delayed) -> (
-      let name = X86_section_name.make name flags args in
-      let where = if is_delayed then delayed_sections else asm_code_by_section in
-      match X86_section_name.Tbl.find_opt where name with
-      | Some x -> asm_code_current_section := x
-      | None ->
-        asm_code_current_section := ref [];
-        X86_section_name.Tbl.add where name !asm_code_current_section)
-  | dir -> !asm_code_current_section := dir :: !(!asm_code_current_section)
-
-let emit ins = directive (Ins ins)
-
-let reset_asm_code () =
-  asm_code := [];
-  asm_code_current_section := ref [];
-  X86_section_name.Tbl.clear asm_code_by_section
-
-let generate_code asm =
-  begin match asm with
-  | Some f -> Profile.record ~accumulate:true "write_asm" f (List.rev !asm_code)
-  | None -> ()
-  end;
-  begin match !internal_assembler with
-    | Some f ->
-      let get sections =
-         X86_section_name.Tbl.fold (fun name instrs acc ->
-            (name, List.rev !instrs) :: acc)
-          sections []
-      in
-      let instrs = get asm_code_by_section in
-      let delayed () = get delayed_sections in
-      binary_content := Some (f ~delayed instrs)
-  | None -> binary_content := None
-  end
+    Ccomp.command
+      (Config.asm ^ " "
+      ^ String.concat " " (Misc.debug_prefix_map_flags ())
+      ^ " -o " ^ Filename.quote outfile ^ " " ^ Filename.quote infile)

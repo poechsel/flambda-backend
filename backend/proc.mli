@@ -117,9 +117,6 @@ val stack_ptr_dwarf_register_number : int
 (** The DWARF register number corresponding to the domainstate pointer. *)
 val domainstate_ptr_dwarf_register_number : int
 
-(* Calling the assembler *)
-val assemble_file: string -> string -> int
-
 (* Called before translating a fundecl. *)
 val init : unit -> unit
 

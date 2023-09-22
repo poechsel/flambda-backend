@@ -416,47 +416,42 @@ let compile_genfuns state ~ppf_dump f =
        (Cmm_helpers.Generic_fns_tbl.of_fns
           (Compilenv.current_unit_infos ()).ui_generic_fns))
 
-let compile_unit ~output_prefix ~asm_filename ~keep_asm ~obj_filename ~may_reduce_heap
+let compile_unit unix ~output_prefix ~asm_filename ~keep_asm ~obj_filename ~may_reduce_heap
         ~ppf_dump gen =
   reset ();
-  let create_asm = should_emit () &&
-                   (keep_asm || not !Emitaux.binary_backend_available) in
-  X86_proc.create_asm_file := create_asm;
-  let state = Asmgen_state.create () in
+  let state =
+    if not (should_emit ()) then
+      Asmgen_state.do_not_emit
+    else if not keep_asm
+            && !Emitaux.binary_backend_available
+            && !Flambda_backend_flags.internal_assembler then
+      Asmgen_state.using_internal_assembler (Internal_assembler.assemble unix)
+    else
+      Asmgen_state.using_external_assembler ~keep_asm ~asm_filename
+  in
   Misc.try_finally
+    ~always:(fun () -> Asmgen_state.cleanup state)
     ~exceptionally:(fun () -> remove_file obj_filename)
     (fun () ->
-       if create_asm then Emitaux.output_channel := open_out asm_filename;
-       let state =
-        Misc.try_finally
-          (fun () ->
-              let state = gen state in
-              Checkmach.record_unit_info ppf_dump;
-              Compiler_hooks.execute Compiler_hooks.Check_allocations
-                Checkmach.iter_witnesses;
-              write_ir output_prefix;
-              state)
-          ~always:(fun () ->
-              if create_asm then close_out !Emitaux.output_channel)
-          ~exceptionally:(fun () ->
-              if create_asm && not keep_asm then remove_file asm_filename);
-       in
-       if should_emit () then begin
-         if may_reduce_heap then
-           Emitaux.reduce_heap_size ~reset:(fun () ->
-            reset ();
-            (* note: we need to preserve the persistent env, because it is
-               used to populate fields of the record written as the cmx file
-               afterwards. *)
-            Typemod.reset ~preserve_persistent_env:true;
-            Emitaux.reset ();
-            Reg.reset ());
-         let assemble_result = Asmgen_state.assemble ~asm_filename ~obj_filename state in
-         if assemble_result <> 0
-         then raise(Error(Assembler_error asm_filename));
-       end;
-       if create_asm && not keep_asm then remove_file asm_filename
-    )
+      let state = gen state in
+      Checkmach.record_unit_info ppf_dump;
+      Compiler_hooks.execute Compiler_hooks.Check_allocations
+        Checkmach.iter_witnesses;
+      write_ir output_prefix;
+      if should_emit () then begin
+        if may_reduce_heap then
+          Emitaux.reduce_heap_size ~reset:(fun () ->
+          reset ();
+          (* note: we need to preserve the persistent env, because it is
+              used to populate fields of the record written as the cmx file
+              afterwards. *)
+          Typemod.reset ~preserve_persistent_env:true;
+          Emitaux.reset ();
+          Reg.reset ());
+        let assemble_result = Asmgen_state.assemble ~obj_filename state in
+        if assemble_result <> 0
+        then raise(Error(Assembler_error asm_filename));
+      end)
 
 let end_gen_implementation unix state ?toplevel ~ppf_dump ~sourcefile make_cmm =
   Emitaux.Dwarf_helpers.init ~disable_dwarf:false sourcefile;
@@ -508,7 +503,7 @@ let asm_filename output_prefix =
 
 let compile_implementation unix ?toplevel ~pipeline
       ~filename ~prefixname ~ppf_dump (program : Lambda.program) =
-  compile_unit ~ppf_dump ~output_prefix:prefixname
+  compile_unit unix ~ppf_dump ~output_prefix:prefixname
     ~asm_filename:(asm_filename prefixname) ~keep_asm:!keep_asm_file
     ~obj_filename:(prefixname ^ ext_obj)
     ~may_reduce_heap:(Option.is_none toplevel)
@@ -549,7 +544,7 @@ let linear_gen_implementation unix state filename =
   emit_end_assembly state filename ()
 
 let compile_implementation_linear unix output_prefix ~progname =
-  compile_unit ~may_reduce_heap:true ~output_prefix
+  compile_unit unix ~may_reduce_heap:true ~output_prefix
     ~asm_filename:(asm_filename output_prefix) ~keep_asm:!keep_asm_file
     ~obj_filename:(output_prefix ^ ext_obj)
     (fun state ->
