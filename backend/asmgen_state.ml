@@ -10,14 +10,20 @@
 (*                                                                        *)
 (**************************************************************************)
 
+open Format
+open Config
+open Clflags
+open Misc
+open Cmm
+
 module External = struct
-  type during_data = { mutable asm_code : X86_ast.asm_line list }
+  type state = { mutable asm_code : X86_ast.asm_line list }
 
-  type 'state data =
-    | Unavailable : [< `Before_emit | `Waiting_to_be_assembled] data
-    | Available : during_data -> [`During_emit] data
+  type 'state state' =
+    | Unavailable : [< `Before_emit | `Waiting_to_be_assembled] state'
+    | Available : state -> [`During_emit] state'
 
-  type target =
+  type t =
     | File of
         { name : string;
           keep_asm : bool;
@@ -25,8 +31,9 @@ module External = struct
         }
     | Stdout
 
-  let channel = function File { channel;name; _ } ->
-    print_endline name; channel | Stdout -> stdout
+  let channel = function
+    | File { channel; name; _ } -> channel
+    | Stdout -> stdout
 
   let cleanup = function
     | File { channel; name; keep_asm } ->
@@ -34,15 +41,31 @@ module External = struct
       close_out channel
     | Stdout -> ()
 
-
   let begin_emit t Unavailable =
     Emitaux.output_channel := channel t;
     let data = { asm_code = [] } in
     data, Available data
 
-  (* val end_emit : during_emit -> waiting_to_be_assembled
+  let end_emit t (Available { asm_code }) =
+    Emitaux.Dwarf_helpers.emit_dwarf ();
+    let asm = List.rev asm_code in
+    let generate =
+      if X86_proc.masm then X86_masm.generate_asm else X86_gas.generate_asm
+    in
+    Profile.record ~accumulate:true "write_asm" (generate (channel t)) asm;
+    Emitaux.output_channel := stderr;
+    Unavailable
 
-  val assemble : obj_filename:string -> waiting_to_be_assembled -> int *)
+  let assemble ~obj_filename target Unavailable =
+    match target with
+    | File { name; channel; _ } ->
+      close_out channel;
+      Profile.record "assemble" (Proc.assemble_file name) obj_filename
+    | Stdout -> 0
+
+  module For_x86 = struct
+    let directive state dir = state.asm_code <- dir :: state.asm_code
+  end
 end
 
 type internal_section = X86_section_name.Tbl.key * X86_ast.asm_line list
@@ -54,40 +77,79 @@ type internal_emitter =
   unit
 
 module Internal = struct
-  type during_data =
+  type state =
     { f : internal_emitter;
       asm_code_current_section : X86_ast.asm_line list ref ref;
       asm_code_by_section : X86_ast.asm_line list ref X86_section_name.Tbl.t;
       delayed_sections : X86_ast.asm_line list ref X86_section_name.Tbl.t
     }
 
-  let create_data f =
-    { f;
-      asm_code_current_section = ref (ref []);
-      asm_code_by_section = X86_section_name.Tbl.create 100;
-      delayed_sections = X86_section_name.Tbl.create 100
-    }
+  type 'state state' =
+    | Registered : internal_emitter -> [`Before_emit] state'
+    | Pending : state -> [< `During_emit] state'
+    | Done : (string -> unit) -> [`Waiting_to_be_assembled] state'
 
-  type 'state data =
-    | Registered : internal_emitter -> [`Before_emit] data
-    | Pending : during_data -> [< `During_emit] data
-    | Done : (string -> unit) -> [`Waiting_to_be_assembled] data
+  type t = unit
 
-  type target = unit
+  let begin_emit () (Registered f) =
+    let data =
+      { f;
+        asm_code_current_section = ref (ref []);
+        asm_code_by_section = X86_section_name.Tbl.create 100;
+        delayed_sections = X86_section_name.Tbl.create 100
+      }
+    in
+    data, Pending data
+
+  let end_emit () (Pending { f; asm_code_by_section; delayed_sections; _ }) =
+    let get sections =
+      X86_section_name.Tbl.fold
+        (fun name instrs acc -> (name, List.rev !instrs) :: acc)
+        sections []
+    in
+    let instrs = get asm_code_by_section in
+    let delayed () = get delayed_sections in
+    Done (f ~delayed instrs)
+
+  let assemble ~obj_filename () (Done f) =
+    f obj_filename;
+    0
+
+  let cleanup _ = ()
+
+  module For_x86 = struct
+    let directive state dir =
+      match dir with
+      | X86_ast.Section (name, flags, args, is_delayed) -> (
+        let name = X86_section_name.make name flags args in
+        let where =
+          if is_delayed
+          then state.delayed_sections
+          else state.asm_code_by_section
+        in
+        match X86_section_name.Tbl.find_opt where name with
+        | Some x -> state.asm_code_current_section := x
+        | None ->
+          state.asm_code_current_section := ref [];
+          X86_section_name.Tbl.add where name !(state.asm_code_current_section))
+      | dir ->
+        !(state.asm_code_current_section)
+        := dir :: !(!(state.asm_code_current_section))
+  end
 end
 
 type global_data =
   | Gerror_if_accessed
   | Gdo_not_emit
-  | Gexternal of External.during_data ref
-  | Ginternal of Internal.during_data ref
+  | Gexternal of External.state ref
+  | Ginternal of Internal.state ref
 
 let global_data = ref Gerror_if_accessed
 
 type 'state t =
   | Do_not_emit : 'state t
-  | Internal : Internal.target * 'state Internal.data -> 'state t
-  | External : External.target * 'state External.data -> 'state t
+  | Internal : Internal.t * 'state Internal.state' -> 'state t
+  | External : External.t * 'state External.state' -> 'state t
 
 type before_emit = [`Before_emit] t
 
@@ -113,87 +175,44 @@ let begin_emit (t : before_emit) =
     global_data := Gdo_not_emit;
     Do_not_emit
   | External (target, state) ->
-    let data, next = External.begin_emit target state in
+    let data, state = External.begin_emit target state in
     global_data := Gexternal (ref data);
-    External (target, next)
-  | Internal (common, Registered f) ->
-    let data = Internal.create_data f in
+    External (target, state)
+  | Internal (target, state) ->
+    let data, state = Internal.begin_emit target state in
     global_data := Ginternal (ref data);
-    Internal (common, Pending data)
-
-let end_emit_assert_consistency_global_data t =
-  let c =
-    match t, !global_data with
-    | External _, Gexternal _ -> true
-    | Internal _, Ginternal _ -> true
-    | Do_not_emit, Gdo_not_emit -> true
-    | _ -> false
-  in
-  assert c
-
-let x86_generate_code = function
-  | External (target, Available { asm_code }) ->
-    Emitaux.Dwarf_helpers.emit_dwarf ();
-    let asm = List.rev asm_code in
-    let generate =
-      if X86_proc.masm then X86_masm.generate_asm else X86_gas.generate_asm
-    in
-    let channel = External.channel target in
-    Profile.record ~accumulate:true "write_asm" (generate channel) asm;
-    close_out channel;
-    Emitaux.output_channel := stderr;
-    (External (target, Unavailable) : waiting_to_be_assembled)
-  | Internal ((), Pending { f; asm_code_by_section; delayed_sections; _ }) ->
-    let get sections =
-      X86_section_name.Tbl.fold
-        (fun name instrs acc -> (name, List.rev !instrs) :: acc)
-        sections []
-    in
-    let instrs = get asm_code_by_section in
-    let delayed () = get delayed_sections in
-    (Internal ((), Done (f ~delayed instrs)) : waiting_to_be_assembled)
-  | Do_not_emit -> Do_not_emit
+    Internal (target, state)
 
 let end_emit (t : during_emit) =
-  let next = x86_generate_code t in
+  let t =
+    match t with
+    | External (target, state) ->
+      let state = External.end_emit target state in
+      (External (target, state) : waiting_to_be_assembled)
+    | Internal (target, state) ->
+      let state = Internal.end_emit target state in
+      (Internal (target, state) : waiting_to_be_assembled)
+    | Do_not_emit -> Do_not_emit
+  in
   global_data := Gerror_if_accessed;
-  next
+  t
 
 let assemble ~obj_filename = function
-  | External (File { name; _ }, _) -> X86_proc.compile name obj_filename
-  | External (Stdout, _) -> assert false
-  | Internal ((), Done f) ->
-    f obj_filename;
-    0
+  | External (target, state) -> External.assemble ~obj_filename target state
+  | Internal (target, state) -> Internal.assemble ~obj_filename target state
   | Do_not_emit -> 0
 
 let cleanup = function
-  | External (target, _) -> External.cleanup target
-  | Internal _ -> ()
   | Do_not_emit -> ()
+  | External (target, _) -> External.cleanup target
+  | Internal (target, _) -> Internal.cleanup target
 
 module For_x86 = struct
   let directive dir =
     match !global_data with
     | Gdo_not_emit -> ()
-    | Gexternal d ->
-      let d = !d in
-      d.asm_code <- dir :: d.asm_code
-    | Ginternal d -> (
-      let d = !d in
-      match dir with
-      | X86_ast.Section (name, flags, args, is_delayed) -> (
-        let name = X86_section_name.make name flags args in
-        let where =
-          if is_delayed then d.delayed_sections else d.asm_code_by_section
-        in
-        match X86_section_name.Tbl.find_opt where name with
-        | Some x -> d.asm_code_current_section := x
-        | None ->
-          d.asm_code_current_section := ref [];
-          X86_section_name.Tbl.add where name !(d.asm_code_current_section))
-      | dir ->
-        !(d.asm_code_current_section) := dir :: !(!(d.asm_code_current_section)))
+    | Gexternal state -> External.For_x86.directive !state dir
+    | Ginternal state -> Internal.For_x86.directive !state dir
     | Gerror_if_accessed -> assert false
 
   let emit ins = directive (Ins ins)

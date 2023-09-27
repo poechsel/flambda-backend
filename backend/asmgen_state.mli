@@ -18,7 +18,6 @@ type during_emit = [`During_emit] t
 
 type waiting_to_be_assembled = [`Waiting_to_be_assembled] t
 
-
 type internal_section = X86_section_name.Tbl.key * X86_ast.asm_line list
 
 type internal_emitter =

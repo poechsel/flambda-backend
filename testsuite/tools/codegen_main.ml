@@ -18,11 +18,12 @@ let write_asm_file = ref false
 
 let compile_file filename =
   let state =
-    if !write_asm_file then begin
+    if !write_asm_file then
       let out_name = Filename.chop_extension filename ^ ".s" in
-      Emitaux.output_channel := open_out out_name
-    end; (* otherwise, stdout *)
-    Asmgen_state.create ()
+      Asmgen_state.use_external out_name
+     else
+      (* otherwise, stdout *)
+      Asmgen_state.to_stdout ()
   in
   let compilation_unit = "test" |> Compilation_unit.of_string in
   Compilenv.reset compilation_unit;
@@ -39,7 +40,6 @@ let compile_file filename =
       End_of_file ->
         close_in ic;
         let _state = Emit.end_assembly state in
-        if !write_asm_file then close_out !Emitaux.output_channel
     | Lexcmm.Error msg ->
         close_in ic; Lexcmm.report_error lb msg
     | Parsing.Parse_error ->
