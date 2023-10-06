@@ -93,8 +93,8 @@ let transl_object =
 let probe_handlers = ref []
 let clear_probe_handlers () = probe_handlers := []
 let declare_probe_handlers lam =
-  List.fold_left (fun acc (funcid, func) ->
-      Llet(Strict, Lambda.layout_function, funcid, func, acc))
+  List.fold_left (fun acc (funcid, funcuid, func) ->
+      Llet(Strict, Lambda.layout_function, funcid, funcuid, func, acc))
     lam
     !probe_handlers
 
@@ -760,7 +760,7 @@ and transl_exp0 ~in_new_scope ~scopes sort e =
       let loc = of_location ~scopes e.exp_loc in
       let self = transl_value_path loc e.exp_env path_self in
       let cpy = Ident.create_local "copy" in
-      Llet(Strict, Lambda.layout_object, cpy,
+      Llet(Strict, Lambda.layout_object, cpy, Uid.internal_not_actually_unique,
            Lapply{
              ap_loc=Loc_unknown;
              ap_func=Translobj.oo_prim "copy";
@@ -788,13 +788,15 @@ and transl_exp0 ~in_new_scope ~scopes sort e =
         let mod_scopes = enter_module_definition ~scopes id in
         !transl_module ~scopes:mod_scopes Tcoerce_none None modl
       in
-      Llet(Strict, Lambda.layout_module, id, defining_expr,
+      Llet(Strict, Lambda.layout_module, id, Uid.internal_not_actually_unique, defining_expr,
            transl_exp ~scopes sort body)
   | Texp_letmodule(_, _, Mp_absent, _, body) ->
       transl_exp ~scopes sort body
   | Texp_letexception(cd, body) ->
+    (* CR tnowak: verify *)
+    let uid = Uid.internal_not_actually_unique in
       Llet(Strict, Lambda.layout_block,
-           cd.ext_id, transl_extension_constructor ~scopes e.exp_env None cd,
+           cd.ext_id, uid, transl_extension_constructor ~scopes e.exp_env None cd,
            transl_exp ~scopes sort body)
   | Texp_pack modl ->
       !transl_module ~scopes Tcoerce_none None modl
@@ -848,6 +850,8 @@ and transl_exp0 ~in_new_scope ~scopes sort e =
          let scopes = enter_lazy ~scopes in
          let fn = lfunction ~kind:(Curried {nlocal=0})
                             ~params:[{ name = Ident.create_local "param";
+                                       var_uid = Uid.internal_not_actually_unique
+                                     (* CR tnowak: verify *);
                                        layout = Lambda.layout_unit;
                                        attributes = Lambda.default_param_attribute;
                                        mode = alloc_heap}]
@@ -895,14 +899,18 @@ and transl_exp0 ~in_new_scope ~scopes sort e =
                module.  When that changes, some adjustments may be needed
                here. *)
             List.fold_left (fun (body, pos) id ->
-              Llet(Alias, Lambda.layout_module_field, id,
+              (* CR tnowak: verify *)
+              let uid = Uid.internal_not_actually_unique in
+              Llet(Alias, Lambda.layout_module_field, id, uid,
                    Lprim(mod_field pos, [Lvar oid],
                          of_location ~scopes od.open_loc), body),
               pos + 1
             ) (transl_exp ~scopes sort e, 0)
               (bound_value_identifiers od.open_bound_items)
           in
-          Llet(pure, Lambda.layout_module, oid,
+          (* CR tnowak: verify *)
+          let ouid = Uid.internal_not_actually_unique in
+          Llet(pure, Lambda.layout_module, oid, ouid,
                !transl_module ~scopes Tcoerce_none None od.open_expr, body)
       end
   | Texp_probe {name; handler=exp; enabled_at_init} ->
@@ -966,6 +974,7 @@ and transl_exp0 ~in_new_scope ~scopes sort e =
           may_fuse_arity = false;
         } in
       let funcid = Ident.create_local ("probe_handler_" ^ name) in
+      let funcuid = Uid.internal_not_actually_unique in
       let return_layout = layout_unit (* Probe bodies have type unit. *) in
       let handler =
         let assume_zero_alloc = get_assume_zero_alloc ~scopes in
@@ -974,7 +983,12 @@ and transl_exp0 ~in_new_scope ~scopes sort e =
           ~kind:(Curried {nlocal=0})
           (* CR layouts: Adjust param layouts when we allow other things in
              probes. *)
-          ~params:(List.map (fun name -> { name; layout = layout_probe_arg; attributes = Lambda.default_param_attribute; mode = alloc_heap }) param_idents)
+          ~params:(List.map (fun name -> { name;
+                                           var_uid = Uid.internal_not_actually_unique
+                                         (* CR tnowak: verify *);
+                                           layout = layout_probe_arg;
+                                           attributes = Lambda.default_param_attribute;
+                                           mode = alloc_heap }) param_idents)
           ~return:return_layout
           ~body:(maybe_region_layout return_layout body)
           ~loc:(of_location ~scopes exp.exp_loc)
@@ -998,14 +1012,14 @@ and transl_exp0 ~in_new_scope ~scopes sort e =
       in
       begin match Config.flambda || Config.flambda2 with
       | true ->
-          Llet(Strict, Lambda.layout_function, funcid, handler, Lapply app)
+          Llet(Strict, Lambda.layout_function, funcid, funcuid, handler, Lapply app)
       | false ->
         (* Needs to be lifted to top level manually here,
            because functions that contain other function declarations
            are not inlined by Closure. For example, adding a probe into
            the body of function foo will prevent foo from being inlined
            into another function. *)
-        probe_handlers := (funcid, handler)::!probe_handlers;
+        probe_handlers := (funcid, funcuid, handler)::!probe_handlers;
         Lapply app
       end
     end else begin
@@ -1139,7 +1153,8 @@ and transl_apply ~scopes
             Lvar _ | Lconst _ -> (lam, layout)
           | _ ->
               let id = Ident.create_local name in
-              defs := (id, layout, lam) :: !defs;
+              let uid = Uid.internal_not_actually_unique in
+              defs := (id, uid, layout, lam) :: !defs;
               (Lvar id, layout)
         in
         let lam =
@@ -1177,6 +1192,7 @@ and transl_apply ~scopes
           let layout_arg = layout_of_sort (to_location loc) sort_arg in
           let params = [{
               name = id_arg;
+              var_uid = Uid.internal_not_actually_unique (* CR tnowak: verify *);
               layout = layout_arg;
               attributes = Lambda.default_param_attribute;
               mode = arg_mode
@@ -1186,7 +1202,7 @@ and transl_apply ~scopes
                     ~attr:{ default_stub_attribute with may_fuse_arity = false } ~loc
         in
         List.fold_right
-          (fun (id, layout, lam) body -> Llet(Strict, layout, id, lam, body))
+          (fun (id, uid, layout, lam) body -> Llet(Strict, layout, id, uid, lam, body))
           !defs body
     | Arg (arg, _) :: l -> build_apply lam (arg :: args) loc pos ap_mode l
     | [] -> lapply lam (List.rev args) loc pos ap_mode result_layout
@@ -1202,6 +1218,7 @@ and transl_apply ~scopes
   in
   build_apply lam [] loc position mode args
 
+<<<<<<< HEAD
 (* There are two cases in function translation:
     - [Tupled]. It takes a tupled argument, and we can flatten it.
     - [Curried]. It takes each argument individually.
@@ -1225,6 +1242,92 @@ and transl_function_without_attributes
            hard to calculate a detailed layout that the middle-end can
            use for optimizations. *)
         layout_of_sort loc return_sort
+=======
+and uids_of_vars cases =
+  let tbl = ref (Ident.Tbl.create 42) in
+  let add_case (case : Typedtree.value Typedtree.case) =
+    let var_list = Typedtree.pat_bound_idents_full Jkind.Sort.value case.c_lhs in
+    List.iter (fun (ident, _loc, _type_expr, uid, _mode) ->
+        Ident.Tbl.add !tbl ident uid)
+      var_list
+  in
+  List.iter add_case cases;
+  !tbl
+
+and transl_curried_function
+      ~scopes ~arg_sort ~arg_layout ~arg_mode ~return_sort ~return_layout loc repr ~region
+      ~curry partial warnings (param:Ident.t) cases =
+  let max_arity = Lambda.max_arity () in
+  let rec loop ~scopes ~arg_sort ~arg_layout ~return_sort ~return_layout loc
+            ~arity ~region ~curry ~arg_mode partial warnings (param:Ident.t) cases =
+    match curry, cases with
+      More_args {partial_mode},
+      [{c_lhs=pat; c_guard=None;
+        c_rhs={exp_desc =
+                 Texp_function
+                   { arg_label = _; param = param'; cases = cases';
+                     partial = partial'; region = region';
+                     curry = curry';
+                     warnings = warnings'; arg_mode = arg_mode'; arg_sort; ret_sort };
+               exp_env; exp_type; exp_loc }}]
+      when arity < max_arity ->
+      (* Lfunctions must have local returns after the first local arg/ret *)
+      if Parmatch.inactive ~partial pat
+      then
+        let partial_mode = transl_alloc_mode partial_mode in
+        let ((fnkind, params, return_layout, region), body) =
+          let return_layout =
+            function_return_layout exp_env exp_loc ret_sort exp_type
+          in
+          let arg_layout =
+            function_arg_layout exp_env exp_loc arg_sort exp_type
+          in
+          loop ~scopes ~arg_sort ~arg_layout ~arg_mode:arg_mode' ~return_sort:ret_sort
+            ~return_layout exp_loc ~arity:(arity + 1) ~region:region'
+            ~curry:curry' partial' warnings' param' cases'
+        in
+        let fnkind =
+          match partial_mode, fnkind with
+          | _, Tupled ->
+             (* arity > 1 prevents this *)
+             assert false
+          | Alloc_heap, (Curried _ as c) -> c
+          | Alloc_local, Curried {nlocal} ->
+             (* all subsequent curried arrows should be local *)
+             assert (nlocal = List.length params);
+             Curried {nlocal = nlocal + 1}
+        in
+        let arg_mode = transl_alloc_mode arg_mode in
+        let params = {
+          name = param ;
+          var_uid = Ident.Tbl.find_opt (uids_of_vars cases) param
+                    |> Option.value ~default:Uid.internal_not_actually_unique ;
+          layout = arg_layout ;
+          attributes = Lambda.default_param_attribute ;
+          mode = arg_mode
+        } :: params
+        in
+        ((fnkind, params, return_layout, region),
+         Matching.for_function ~scopes ~arg_sort ~arg_layout ~return_layout loc
+           None (Lvar param) [pat, body] partial)
+      else begin
+        begin match partial with
+        | Total ->
+            let prev = Warnings.backup () in
+            Warnings.restore warnings;
+            Location.prerr_warning pat.pat_loc
+              Match_on_mutable_state_prevent_uncurry;
+            Warnings.restore prev
+        | Partial -> ()
+        end;
+        transl_tupled_function ~scopes ~arg_sort ~arg_layout ~arg_mode
+          ~return_sort:ret_sort ~return_layout ~arity ~region ~curry
+          loc repr partial param cases
+      end
+    | curry, cases ->
+      transl_tupled_function ~scopes ~arg_sort ~arg_layout ~arg_mode ~return_sort
+        ~return_layout ~arity ~region ~curry loc repr partial param cases
+>>>>>>> 7a9e2d6d2 (Propagate Uids for variables)
   in
   match
     transl_tupled_function ~scopes loc params body
@@ -1285,6 +1388,7 @@ and transl_tupled_function
         let tparams =
           List.map (fun kind -> {
                 name = Ident.create_local "param";
+                var_uid = Uid.internal_not_actually_unique (* CR tnowak: verify *);
                 layout = kind;
                 attributes = Lambda.default_param_attribute;
                 mode = alloc_heap
@@ -1300,6 +1404,7 @@ and transl_tupled_function
           ((Tupled, tparams, return_layout, region, return_mode), body)
     with Matching.Cannot_flatten -> None
       end
+<<<<<<< HEAD
   | _ -> None
 
 and transl_curried_function ~scopes loc repr params body
@@ -1471,6 +1576,50 @@ and transl_function ~in_new_scope ~scopes e params body
   let mode = transl_alloc_mode alloc_mode in
   let assume_zero_alloc =
     Translattribute.get_assume_zero_alloc ~with_warnings:false attrs
+=======
+  | _ -> transl_function0 ~scopes ~arg_sort ~arg_layout ~arg_mode ~return_sort
+           ~return_layout loc ~region ~partial_mode
+           repr partial param cases
+
+and transl_function0
+      ~scopes ~arg_sort ~arg_layout ~arg_mode ~return_sort ~return_layout loc ~region
+      ~partial_mode repr partial (param:Ident.t) cases =
+    let body =
+      Matching.for_function ~scopes ~arg_sort ~arg_layout ~return_layout loc
+        repr (Lvar param) (transl_cases ~scopes return_sort cases) partial
+    in
+    let region = region || not (may_allocate_in_region body) in
+    let nlocal =
+      if not region then 1
+      else match partial_mode with
+        | Alloc_local -> 1
+        | Alloc_heap -> 0
+    in
+    let arg_mode = transl_alloc_mode arg_mode in
+    ((Curried {nlocal},
+      [{ name = param;
+         var_uid = Ident.Tbl.find_opt (uids_of_vars cases) param
+            |> Option.value ~default:Uid.internal_not_actually_unique;
+         layout = arg_layout;
+         attributes = Lambda.default_param_attribute;
+         mode = arg_mode}],
+      return_layout, region), body)
+
+and transl_function ~in_new_scope ~scopes e alloc_mode param arg_mode arg_sort return_sort
+      cases partial warnings region curry =
+  let mode = transl_alloc_mode alloc_mode in
+  let attrs =
+    (* Collect attributes from the Pexp_newtype node for locally abstract types.
+       Otherwise we'd ignore the attribute in, e.g.;
+           fun [@inline] (type a) x -> ...
+    *)
+    List.fold_left
+      (fun attrs (extra_exp, _, extra_attrs) ->
+         match extra_exp with
+         | Texp_newtype _ -> extra_attrs @ attrs
+         | (Texp_constraint _ | Texp_coerce _ | Texp_poly _) -> attrs)
+      e.exp_attributes e.exp_extra
+>>>>>>> 7a9e2d6d2 (Propagate Uids for variables)
   in
   let scopes =
     if in_new_scope then begin
@@ -1496,9 +1645,21 @@ and transl_function ~in_new_scope ~scopes e params body
   let ((kind, params, return, region, ret_mode), body) =
     event_function ~scopes e
       (function repr ->
+<<<<<<< HEAD
          transl_function_without_attributes
            ~mode ~return_sort ~return_mode
            ~scopes e.exp_loc repr ~region params body)
+=======
+         let pl =
+           push_defaults e.exp_loc arg_mode arg_sort cases partial warnings
+         in
+         let return_layout =
+           function_return_layout e.exp_env e.exp_loc return_sort e.exp_type
+         in
+         transl_curried_function ~arg_sort ~arg_layout ~arg_mode ~return_sort
+           ~return_layout ~scopes e.exp_loc repr ~region ~curry
+           partial warnings param pl)
+>>>>>>> 7a9e2d6d2 (Propagate Uids for variables)
   in
   let attr = function_attribute_disallowing_arity_fusion in
   let loc = of_location ~scopes e.exp_loc in
@@ -1571,7 +1732,9 @@ and transl_let ~scopes ~return_layout ?(add_regions=false) ?(in_structure=false)
         let lam =
           if add_regions then maybe_region_exp vb_sort expr lam else lam
         in
-        (id, lam) in
+        (* CR tnowak: verify *)
+        let uid = Uid.internal_not_actually_unique in
+        (id, uid, lam) in
       let lam_bds = List.map2 transl_case pat_expr_list idlist in
       fun body -> Lletrec(lam_bds, body)
 
@@ -1595,6 +1758,7 @@ and transl_record ~scopes loc env mode fields repres opt_init_expr =
        taken from init_expr if any *)
     (* CR layouts v5: allow non-value fields beyond just float# *)
     let init_id = Ident.create_local "init" in
+    let init_uid = Uid.internal_not_actually_unique in
     let lv =
       Array.mapi
         (fun i (lbl, definition) ->
@@ -1685,13 +1849,14 @@ and transl_record ~scopes loc env mode fields repres opt_init_expr =
     in
     begin match opt_init_expr with
       None -> lam
-    | Some init_expr -> Llet(Strict, Lambda.layout_block, init_id,
+    | Some init_expr -> Llet(Strict, Lambda.layout_block, init_id, init_uid,
                              transl_exp ~scopes Jkind.Sort.for_record init_expr, lam)
     end
   end else begin
     (* Take a shallow copy of the init record, then mutate the fields
        of the copy *)
     let copy_id = Ident.create_local "newrecord" in
+    let copy_uid = Uid.internal_not_actually_unique in
     let update_field cont (lbl, definition) =
       (* CR layouts v5: allow more unboxed types here. *)
       let lbl_sort = Jkind.sort_of_jkind lbl.lbl_jkind in
@@ -1724,7 +1889,7 @@ and transl_record ~scopes loc env mode fields repres opt_init_expr =
       None -> assert false
     | Some init_expr ->
         assert (is_heap_mode (Option.get mode)); (* Pduprecord must be Alloc_heap and not unboxed *)
-        Llet(Strict, Lambda.layout_block, copy_id,
+        Llet(Strict, Lambda.layout_block, copy_id, copy_uid,
              Lprim(Pduprecord (repres, size),
                    [transl_exp ~scopes Jkind.Sort.for_record init_expr],
                    of_location ~scopes loc),
@@ -1759,10 +1924,10 @@ and transl_match ~scopes ~arg_sort ~return_sort e arg pat_expr_list partial =
         (* Simplif doesn't like it if binders are not uniq, so we make sure to
            use different names in the value and the exception branches. *)
         let ids_full = Typedtree.pat_bound_idents_full arg_sort pv in
-        let ids = List.map (fun (id, _, _, _) -> id) ids_full in
+        let ids = List.map (fun (id, _, _, _, _) -> id) ids_full in
         let ids_kinds =
-          List.map (fun (id, {Location.loc; _}, ty, s) ->
-            id, Typeopt.layout pv.pat_env loc s ty)
+          List.map (fun (id, {Location.loc; _}, ty, uid, s) ->
+            id, uid, Typeopt.layout pv.pat_env loc s ty)
             ids_full
         in
         let vids = List.map Ident.rename ids in
@@ -1832,7 +1997,8 @@ and transl_match ~scopes ~arg_sort ~return_sort e arg pat_expr_list partial =
             (fun (arg,s) ->
                let layout = layout_exp s arg in
                let id = Typecore.name_pattern "val" [] in
-               (id, layout), (Lvar id, s, layout))
+               let uid = Uid.internal_not_actually_unique in
+               (id, uid, layout), (Lvar id, s, layout))
             argl
           |> List.split
         in
@@ -1847,8 +2013,9 @@ and transl_match ~scopes ~arg_sort ~return_sort e arg pat_expr_list partial =
         e.exp_loc None (transl_exp ~scopes arg_sort arg) val_cases partial
     | arg, _ :: _ ->
         let val_id = Typecore.name_pattern "val" (List.map fst val_cases) in
+        let val_uid = Uid.internal_not_actually_unique in
         let arg_layout = layout_exp arg_sort arg in
-        static_catch [transl_exp ~scopes arg_sort arg] [val_id, arg_layout]
+        static_catch [transl_exp ~scopes arg_sort arg] [val_id, val_uid, arg_layout]
           (Matching.for_function ~scopes ~arg_sort ~arg_layout ~return_layout
              e.exp_loc None (Lvar val_id) val_cases partial)
   in
@@ -1862,7 +2029,9 @@ and transl_letop ~scopes loc env let_ ands param param_sort case case_sort
     | [] -> prev_lam
     | and_ :: rest ->
         let left_id = Ident.create_local "left" in
+        let left_uid = Uid.internal_not_actually_unique in
         let right_id = Ident.create_local "right" in
+        let right_uid = Uid.internal_not_actually_unique in
         let op =
           transl_ident (of_location ~scopes and_.bop_op_name.loc) env
             and_.bop_op_type and_.bop_op_path and_.bop_op_val Id_value
@@ -1874,7 +2043,7 @@ and transl_letop ~scopes loc env let_ ands param param_sort case case_sort
             and_.bop_op_type
         in
         let lam =
-          bind_with_layout Strict (right_id, right_layout) exp
+          bind_with_layout Strict (right_id, right_uid, right_layout) exp
             (Lapply{
                ap_loc = of_location ~scopes and_.bop_loc;
                ap_func = op;
@@ -1888,7 +2057,7 @@ and transl_letop ~scopes loc env let_ ands param param_sort case case_sort
                ap_probe=None;
              })
         in
-        bind_with_layout Strict (left_id, prev_layout) prev_lam (loop result_layout lam rest)
+        bind_with_layout Strict (left_id, left_uid, prev_layout) prev_lam (loop result_layout lam rest)
   in
   let op =
     transl_ident (of_location ~scopes let_.bop_op_name.loc) env

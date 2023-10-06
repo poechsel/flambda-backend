@@ -234,6 +234,7 @@ and expression_desc =
         (** let P1 = E1 and ... and Pn = EN in E       (flag = Nonrecursive)
             let rec P1 = E1 and ... and Pn = EN in E   (flag = Recursive)
          *)
+<<<<<<< HEAD
   | Texp_function of
       { params : function_param list;
         body : function_body;
@@ -254,6 +255,33 @@ and expression_desc =
           Parameters' effects are run left-to-right when an n-ary function is
           saturated with n arguments.
       *)
+=======
+  | Texp_function of { arg_label : arg_label;
+      (** [param] is either a freshly generated name or
+          an existing parameter name that appears in the case list.
+      *)
+      param : Ident.t;
+      cases : value case list; partial : partial;
+      region : bool; curry : fun_curry_state;
+      warnings : Warnings.state;
+      arg_mode : Mode.Alloc.t;
+      arg_sort : Jkind.sort;
+      ret_sort : Jkind.sort;
+      alloc_mode : Mode.Alloc.t}
+        (** [Pexp_fun] and [Pexp_function] both translate to [Texp_function].
+            See {!Parsetree} for more details.
+
+            [param] is the identifier that is to be used to name the
+            parameter of the function.
+
+            partial =
+              [Partial] if the pattern match is partial
+              [Total] otherwise.
+
+            partial_mode is the mode of the resulting closure if this function
+            is partially applied to a single argument.
+         *)
+>>>>>>> 7a9e2d6d2 (Propagate Uids for variables)
   | Texp_apply of expression * (arg_label * apply_arg) list * apply_position * Mode.Locality.t
         (** E0 ~l1:E1 ... ~ln:En
 
@@ -1056,7 +1084,7 @@ val pat_bound_idents_with_types:
   'k general_pattern -> (Ident.t * Types.type_expr) list
 val pat_bound_idents_full:
   Jkind.sort -> 'k general_pattern
-  -> (Ident.t * string loc * Types.type_expr * Jkind.sort) list
+  -> (Ident.t * string loc * Types.type_expr * Uid.t * Jkind.sort) list
 
 (** Splits an or pattern into its value (left) and exception (right) parts. *)
 val split_pattern:

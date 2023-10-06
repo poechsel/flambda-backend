@@ -14,6 +14,8 @@
 (*                                                                        *)
 (**************************************************************************)
 
+module Uid = Shape.Uid
+
 module IR = struct
   type simple =
     | Var of Ident.t
@@ -21,7 +23,7 @@ module IR = struct
 
   type exn_continuation =
     { exn_handler : Continuation.t;
-      extra_args : (simple * Flambda_kind.With_subkind.t) list
+      extra_args : (simple * Flambda_uid.t * Flambda_kind.With_subkind.t) list
     }
 
   type trap_action =
@@ -234,7 +236,7 @@ module Env = struct
   let add_vars_like t ids =
     let vars =
       List.map
-        (fun (id, (user_visible : IR.user_visible), kind) ->
+        (fun (id, _uid, (user_visible : IR.user_visible), kind) ->
           let user_visible =
             match user_visible with
             | Not_user_visible -> None
@@ -243,7 +245,7 @@ module Env = struct
           Variable.create_with_same_name_as_ident ?user_visible id, kind)
         ids
     in
-    add_vars t (List.map (fun (id, _, _) -> id) ids) vars, List.map fst vars
+    add_vars t (List.map (fun (id, _, _, _) -> id) ids) vars, List.map fst vars
 
   let find_var t id =
     try Ident.Map.find id t.variables
@@ -732,6 +734,7 @@ module Function_decls = struct
   module Function_decl = struct
     type param =
       { name : Ident.t;
+        var_uid : Flambda_uid.t;
         kind : Flambda_kind.With_subkind.t;
         attributes : Lambda.parameter_attribute;
         mode : Lambda.alloc_mode
@@ -739,6 +742,7 @@ module Function_decls = struct
 
     type t =
       { let_rec_ident : Ident.t;
+        let_rec_uid : Flambda_uid.t;
         function_slot : Function_slot.t;
         kind : Lambda.function_kind;
         params : param list;
@@ -759,18 +763,27 @@ module Function_decls = struct
         contains_no_escaping_local_allocs : bool
       }
 
+<<<<<<< HEAD
     let create ~let_rec_ident ~function_slot ~kind ~params ~params_arity
         ~removed_params ~return ~return_continuation ~exn_continuation
         ~my_region ~body ~(attr : Lambda.function_attribute) ~loc
         ~free_idents_of_body recursive ~closure_alloc_mode
         ~first_complex_local_param ~result_mode
         ~contains_no_escaping_local_allocs =
+=======
+    let create ~let_rec_ident ~let_rec_uid ~function_slot ~kind ~params
+        ~params_arity ~removed_params ~return ~return_continuation
+        ~exn_continuation ~my_region ~body ~(attr : Lambda.function_attribute)
+        ~loc ~free_idents_of_body recursive ~closure_alloc_mode
+        ~first_complex_local_param ~contains_no_escaping_local_allocs =
+>>>>>>> 7a9e2d6d2 (Propagate Uids for variables)
       let let_rec_ident =
         match let_rec_ident with
         | None -> Ident.create_local "unnamed_function"
         | Some let_rec_ident -> let_rec_ident
       in
       { let_rec_ident;
+        let_rec_uid;
         function_slot;
         kind;
         params;

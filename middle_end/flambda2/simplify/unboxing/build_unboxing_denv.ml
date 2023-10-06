@@ -28,7 +28,11 @@ let add_equation_on_var denv var shape =
     Misc.fatal_errorf "Meet failed whereas prove and meet previously succeeded"
 
 let denv_of_number_decision naked_kind shape param_var naked_var denv : DE.t =
-  let naked_name = VB.create naked_var Name_mode.normal in
+  (* CR tnowak: verify *)
+  let naked_name =
+    VB.create naked_var Flambda_uid.internal_not_actually_unique
+      Name_mode.normal
+  in
   let denv = DE.define_variable denv naked_name naked_kind in
   add_equation_on_var denv param_var shape
 
@@ -42,7 +46,11 @@ let rec denv_of_decision denv ~param_var (decision : U.decision) : DE.t =
     let denv =
       List.fold_left
         (fun denv ({ epa = { param = var; _ }; _ } : U.field_decision) ->
-          let v = VB.create var Name_mode.normal in
+          (* CR tnowak: verify *)
+          let v =
+            VB.create var Flambda_uid.internal_not_actually_unique
+              Name_mode.normal
+          in
           DE.define_variable denv v field_kind)
         denv fields
     in
@@ -63,7 +71,11 @@ let rec denv_of_decision denv ~param_var (decision : U.decision) : DE.t =
     let denv =
       Value_slot.Map.fold
         (fun _ ({ epa = { param = var; _ }; kind; _ } : U.field_decision) denv ->
-          let v = VB.create var Name_mode.normal in
+          (* CR tnowak: verify *)
+          let v =
+            VB.create var Flambda_uid.internal_not_actually_unique
+              Name_mode.normal
+          in
           DE.define_variable denv v (K.With_subkind.kind kind))
         vars_within_closure denv
     in
@@ -84,7 +96,11 @@ let rec denv_of_decision denv ~param_var (decision : U.decision) : DE.t =
       vars_within_closure denv
   | Unbox (Variant { tag; const_ctors; fields_by_tag }) ->
     (* Adapt the denv for the tag *)
-    let tag_v = VB.create tag.param Name_mode.normal in
+    (* CR tnowak: verify *)
+    let tag_v =
+      VB.create tag.param Flambda_uid.internal_not_actually_unique
+        Name_mode.normal
+    in
     let denv = DE.define_variable denv tag_v K.naked_immediate in
     let denv =
       DE.add_equation_on_variable denv tag.param
@@ -99,7 +115,11 @@ let rec denv_of_decision denv ~param_var (decision : U.decision) : DE.t =
       match const_ctors with
       | Zero -> denv
       | At_least_one { is_int; _ } ->
-        let is_int_v = VB.create is_int.param Name_mode.normal in
+        (* CR tnowak: verify *)
+        let is_int_v =
+          VB.create is_int.param Flambda_uid.internal_not_actually_unique
+            Name_mode.normal
+        in
         let denv = DE.define_variable denv is_int_v K.naked_immediate in
         let denv =
           DE.add_equation_on_variable denv is_int.param
@@ -120,7 +140,11 @@ let rec denv_of_decision denv ~param_var (decision : U.decision) : DE.t =
       | At_least_one { ctor = Do_not_unbox _; _ } ->
         denv, T.unknown K.naked_immediate
       | At_least_one { ctor = Unbox (Number (Naked_immediate, ctor_epa)); _ } ->
-        let v = VB.create ctor_epa.param Name_mode.normal in
+        (* CR tnowak: verify *)
+        let v =
+          VB.create ctor_epa.param Flambda_uid.internal_not_actually_unique
+            Name_mode.normal
+        in
         let denv = DE.define_variable denv v K.naked_immediate in
         let ty =
           T.alias_type_of K.naked_immediate (Simple.var ctor_epa.param)
@@ -145,7 +169,11 @@ let rec denv_of_decision denv ~param_var (decision : U.decision) : DE.t =
         (fun _ block_fields denv ->
           List.fold_left
             (fun denv ({ epa = { param = var; _ }; _ } : U.field_decision) ->
-              let v = VB.create var Name_mode.normal in
+              (* CR tnowak: verify *)
+              let v =
+                VB.create var Flambda_uid.internal_not_actually_unique
+                  Name_mode.normal
+              in
               DE.define_variable denv v K.value)
             denv block_fields)
         fields_by_tag denv

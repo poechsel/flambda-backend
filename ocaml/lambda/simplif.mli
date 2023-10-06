@@ -31,6 +31,7 @@ val simplify_lambda: lambda -> lambda
 
 val split_default_wrapper
    : id:Ident.t
+  -> uid:Uid.t
   -> kind:function_kind
   -> params:Lambda.lparam list
   -> return:Lambda.layout
@@ -40,4 +41,4 @@ val split_default_wrapper
   -> mode:Lambda.alloc_mode
   -> ret_mode:Lambda.alloc_mode
   -> region:bool
-  -> (Ident.t * lambda) list
+  -> (Ident.t * Uid.t * lambda) list
