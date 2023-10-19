@@ -49,13 +49,17 @@ val reset_asm_code: unit -> unit
 
 (** Code emission *)
 
-val generate_code: (X86_ast.asm_line list -> unit) option -> unit
+type output =
+  | Main
+  | Split_dwarf
+
+val generate_code: output -> (X86_ast.asm_line list -> unit) option -> unit
   (** Post-process the stream of instructions.  Dump it (using
       the provided syntax emitter) in a file (if provided) and
       compile it with an internal assembler (if registered
       through [register_internal_assembler]). *)
 
-val assemble_file: (*infile*) string -> (*outfile*) string -> (*retcode*) int
+val assemble_file: output -> (*infile*) string -> (*outfile*) string -> (*retcode*) int
 (** Generate an object file corresponding to the last call to
     [generate_code].  An internal assembler is used if available (and
     the input file is ignored). Otherwise, the source asm file with an

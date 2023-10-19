@@ -2345,14 +2345,14 @@ let end_assembly () =
       Some
         (
          (if X86_proc.masm then X86_masm.generate_asm
-          else X86_gas.generate_asm) !Emitaux.output_channel
+          else X86_gas.generate_asm)
         )
     else
       None
   in
   if not !Flambda_backend_flags.internal_assembler then
     Emitaux.Dwarf_helpers.emit_dwarf ();
-  X86_proc.generate_code asm;
+  X86_proc.generate_code X86_proc.Main (Option.map (fun f -> f !Emitaux.output_channel) asm);
   (* The internal assembler does not work if reset_all is called here *)
   if not !Flambda_backend_flags.internal_assembler then
     reset_all ()

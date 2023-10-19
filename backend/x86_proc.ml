@@ -306,11 +306,20 @@ let use_plt =
   | S_macosx | S_mingw64 | S_cygwin | S_win64 -> false
   | _ -> !Clflags.dlcode
 
+type output =
+  | Main
+  | Split_dwarf
+
 (* Shall we use an external assembler command ?
    If [binary_content] contains some data, we can directly
    save it. Otherwise, we have to ask an external command.
 *)
-let binary_content = ref None
+let binary_content =
+  let main = ref None in
+  let dwarf = ref None in
+  function
+  | Main -> main
+  | Split_dwarf -> dwarf
 
 let compile infile outfile =
   if masm then
@@ -323,43 +332,82 @@ let compile infile outfile =
                    " -o " ^ Filename.quote outfile ^ " " ^
                    Filename.quote infile)
 
-let assemble_file infile outfile =
-  match !binary_content with
+let assemble_file output infile outfile =
+  match !(binary_content output) with
   | None -> compile infile outfile
-  | Some content -> content outfile; binary_content := None; 0
+  | Some content -> content outfile; (binary_content output) := None; 0
 
-let asm_code = ref []
-let asm_code_current_section = ref (ref [])
-let asm_code_by_section = Section_name.Tbl.create 100
-let delayed_sections = Section_name.Tbl.create 100
+module State = struct
+  type t = {
+    mutable asm_code : X86_ast.asm_line list ;
+    mutable asm_code_current_section : X86_ast.asm_line list ref;
+    mutable asm_code_by_section : X86_ast.asm_line list ref Section_name.Tbl.t;
+    mutable delayed_sections : X86_ast.asm_line list ref Section_name.Tbl.t;
+  }
+  let create () =
+    { asm_code = [];
+      asm_code_current_section = ref [];
+      asm_code_by_section = Section_name.Tbl.create 100;
+      delayed_sections = Section_name.Tbl.create 100 }
+
+  let assign ~value to_ =
+    to_.asm_code <- value.asm_code;
+    to_.asm_code_current_section <- value.asm_code_current_section;
+    to_.asm_code_by_section <- value.asm_code_by_section;
+    to_.delayed_sections <- value.delayed_sections
+
+  let reset t =
+    t.asm_code <- [];
+    t.asm_code_current_section <- ref [];
+    Section_name.Tbl.clear t.asm_code_by_section
+
+end
+
+let main_state = State.create ()
+let split_dwarf_state = State.create ()
+let state = State.create ()
+
+let current_output = ref Main
+
+let switch_to_output new_ =
+  match !current_output, new_ with
+  | Main, Main | Split_dwarf, Split_dwarf -> ()
+  | Main, Split_dwarf ->
+    State.assign ~value:state main_state;
+    State.assign ~value:split_dwarf_state state
+  | Split_dwarf, Main ->
+    State.assign ~value:state split_dwarf_state;
+    State.assign ~value:main_state state
+
 
 (* Cannot use Emitaux directly here or there would be a circular dep *)
 let create_asm_file = ref true
 
 let directive dir =
   (if !create_asm_file then
-     asm_code := dir :: !asm_code);
+     state.asm_code <- dir :: state.asm_code);
   match dir with
   | Section (name, flags, args, is_delayed) -> (
       let name = Section_name.make name flags args in
-      let where = if is_delayed then delayed_sections else asm_code_by_section in
+      let where = if is_delayed then state.delayed_sections else state.asm_code_by_section in
       match Section_name.Tbl.find_opt where name with
-      | Some x -> asm_code_current_section := x
+      | Some x -> state.asm_code_current_section <- x
       | None ->
-        asm_code_current_section := ref [];
-        Section_name.Tbl.add where name !asm_code_current_section)
-  | dir -> !asm_code_current_section := dir :: !(!asm_code_current_section)
+        state.asm_code_current_section <- ref [];
+        Section_name.Tbl.add where name state.asm_code_current_section)
+  | dir -> state.asm_code_current_section := dir :: !(state.asm_code_current_section)
 
 let emit ins = directive (Ins ins)
 
 let reset_asm_code () =
-  asm_code := [];
-  asm_code_current_section := ref [];
-  Section_name.Tbl.clear asm_code_by_section
+  State.reset state;
+  State.reset split_dwarf_state;
+  State.reset main_state;
+  current_output := Main
 
-let generate_code asm =
+let generate_code output asm =
   begin match asm with
-  | Some f -> Profile.record ~accumulate:true "write_asm" f (List.rev !asm_code)
+  | Some f -> Profile.record ~accumulate:true "write_asm" f (List.rev state.asm_code)
   | None -> ()
   end;
   begin match !internal_assembler with
@@ -369,8 +417,8 @@ let generate_code asm =
             (name, List.rev !instrs) :: acc)
           sections []
       in
-      let instrs = get asm_code_by_section in
-      let delayed () = get delayed_sections in
-      binary_content := Some (f ~delayed instrs)
-  | None -> binary_content := None
+      let instrs = get state.asm_code_by_section in
+      let delayed () = get state.delayed_sections in
+      binary_content output := Some (f ~delayed instrs)
+  | None -> binary_content output := None
   end
