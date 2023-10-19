@@ -23,6 +23,8 @@ type error =
 exception Error of error
 
 let output_channel = ref stdout
+let output_channel_main = ref stdout
+let output_channel_split_dwarf = ref stdout
 
 let emit_string s = output_string !output_channel s
 

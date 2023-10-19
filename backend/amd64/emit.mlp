@@ -2352,7 +2352,8 @@ let end_assembly () =
   in
   if not !Flambda_backend_flags.internal_assembler then
     Emitaux.Dwarf_helpers.emit_dwarf ();
-  X86_proc.generate_code X86_proc.Main (Option.map (fun f -> f !Emitaux.output_channel) asm);
+  X86_proc.generate_code X86_proc.Main asm;
+  if !Dwarf_flags.split_dwarf then X86_proc.generate_code X86_proc.Split_dwarf asm;
   (* The internal assembler does not work if reset_all is called here *)
   if not !Flambda_backend_flags.internal_assembler then
     reset_all ()

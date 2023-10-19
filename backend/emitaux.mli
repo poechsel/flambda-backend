@@ -16,6 +16,8 @@
 (* Common functions for emitting assembly code *)
 
 val output_channel: out_channel ref
+val output_channel_main: out_channel ref
+val output_channel_split_dwarf: out_channel ref
 val emit_string: string -> unit
 val emit_int: int -> unit
 val emit_nativeint: nativeint -> unit
@@ -123,4 +125,3 @@ end
 
 exception Error of error
 val report_error: Format.formatter -> error -> unit
-

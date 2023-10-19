@@ -414,16 +414,25 @@ let compile_genfuns ~ppf_dump f =
        (Generic_fns.Tbl.of_fns
           (Compilenv.current_unit_infos ()).ui_generic_fns))
 
-let compile_unit ~output_prefix ~asm_filename ~keep_asm ~obj_filename ~may_reduce_heap
-        ~ppf_dump gen =
+let compile_unit ~output_prefix ~asm_filename ~keep_asm
+        ~obj_filename ~may_reduce_heap ~ppf_dump gen =
   reset ();
   let create_asm = should_emit () &&
                    (keep_asm || not !Emitaux.binary_backend_available) in
   X86_proc.create_asm_file := create_asm;
+  let split_dwarf_asm_filename = output_prefix ^ ".dwo.s" in
+  let split_dwarf_obj_filename = output_prefix ^ ".dwo" in
   Misc.try_finally
-    ~exceptionally:(fun () -> remove_file obj_filename)
+    ~exceptionally:(fun () ->
+      remove_file obj_filename;
+      if !Dwarf_flags.split_dwarf then remove_file split_dwarf_obj_filename)
     (fun () ->
-       if create_asm then Emitaux.output_channel := open_out asm_filename;
+       if create_asm then (
+         X86_proc.output_channel_main := open_out asm_filename;
+         Emitaux.output_channel := !X86_proc.output_channel_main;
+         if !Dwarf_flags.split_dwarf then
+          X86_proc.output_channel_split_dwarf := open_out split_dwarf_asm_filename
+       );
        Misc.try_finally
          (fun () ->
             gen ();
@@ -432,9 +441,15 @@ let compile_unit ~output_prefix ~asm_filename ~keep_asm ~obj_filename ~may_reduc
               Checkmach.iter_witnesses;
             write_ir output_prefix)
          ~always:(fun () ->
-             if create_asm then close_out !Emitaux.output_channel)
+             if create_asm then (
+              close_out !Emitaux.output_channel;
+              if !Dwarf_flags.split_dwarf then
+                close_out !X86_proc.output_channel_split_dwarf))
          ~exceptionally:(fun () ->
-             if create_asm && not keep_asm then remove_file asm_filename);
+             if create_asm && not keep_asm then (
+               remove_file asm_filename;
+              if !Dwarf_flags.split_dwarf then remove_file split_dwarf_asm_filename
+         ));
        if should_emit () then begin
          if may_reduce_heap then
            Emitaux.reduce_heap_size ~reset:(fun () ->
@@ -445,15 +460,22 @@ let compile_unit ~output_prefix ~asm_filename ~keep_asm ~obj_filename ~may_reduc
             Typemod.reset ~preserve_persistent_env:true;
             Emitaux.reset ();
             Reg.reset ());
-         let assemble_result =
-           Profile.record "assemble"
-             (Proc.assemble_file asm_filename) obj_filename
+         let assemble output asm_filename obj_filename =
+           let assemble_result =
+             Profile.record "assemble"
+               (Proc.assemble_file output asm_filename) obj_filename
+           in
+           if assemble_result <> 0
+           then raise(Error(Assembler_error asm_filename))
          in
-         if assemble_result <> 0
-         then raise(Error(Assembler_error asm_filename));
+         assemble X86_proc.Main asm_filename obj_filename;
+         if !Dwarf_flags.split_dwarf then
+          assemble X86_proc.Split_dwarf split_dwarf_asm_filename split_dwarf_obj_filename
        end;
-       if create_asm && not keep_asm then remove_file asm_filename
-    )
+       if create_asm && not keep_asm then (
+         remove_file asm_filename;
+        if !Dwarf_flags.split_dwarf then remove_file split_dwarf_asm_filename
+    ))
 
 let end_gen_implementation unix ?toplevel ~ppf_dump ~sourcefile make_cmm =
   Emitaux.Dwarf_helpers.init ~disable_dwarf:false sourcefile;

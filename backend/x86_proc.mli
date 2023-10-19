@@ -53,7 +53,12 @@ type output =
   | Main
   | Split_dwarf
 
-val generate_code: output -> (X86_ast.asm_line list -> unit) option -> unit
+
+val output_channel_split_dwarf : out_channel ref
+
+val output_channel_main : out_channel ref
+
+val generate_code: output -> (out_channel -> X86_ast.asm_line list -> unit) option -> unit
   (** Post-process the stream of instructions.  Dump it (using
       the provided syntax emitter) in a file (if provided) and
       compile it with an internal assembler (if registered

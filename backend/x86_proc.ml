@@ -399,6 +399,10 @@ let directive dir =
 
 let emit ins = directive (Ins ins)
 
+let output_channel_split_dwarf = ref stdout
+
+let output_channel_main = ref stdout
+
 let reset_asm_code () =
   State.reset state;
   State.reset split_dwarf_state;
@@ -406,8 +410,15 @@ let reset_asm_code () =
   current_output := Main
 
 let generate_code output asm =
+  switch_to_output output;
   begin match asm with
-  | Some f -> Profile.record ~accumulate:true "write_asm" f (List.rev state.asm_code)
+  | Some f ->
+    let channel =
+      match !current_output with
+      | Split_dwarf -> !output_channel_split_dwarf
+      | Main -> !output_channel_main
+    in
+    Profile.record ~accumulate:true "write_asm" (f channel) (List.rev state.asm_code)
   | None -> ()
   end;
   begin match !internal_assembler with

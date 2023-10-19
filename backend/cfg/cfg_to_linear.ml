@@ -460,4 +460,4 @@ let print_assembly (blocks : Cfg.basic_block list) =
   let fundecl = run cl in
   X86_proc.reset_asm_code ();
   Emit.fundecl fundecl;
-  X86_proc.generate_code Main (Some (X86_gas.generate_asm !Emitaux.output_channel))
+  X86_proc.generate_code Main (Some (X86_gas.generate_asm))
