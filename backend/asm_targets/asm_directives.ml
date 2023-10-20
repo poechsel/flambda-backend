@@ -119,6 +119,10 @@ module Make (A : Asm_directives_intf.Arg) : Asm_directives_intf.S = struct
        break. *)
     D.label (Asm_label.encode label)
 
+  let switch_to_split_dwarf () = D.switch_to_split_dwarf ()
+
+  let switch_to_binary () = D.switch_to_binary ()
+
   let switch_to_section section =
     let first_occurrence =
       if List.mem section !sections_seen

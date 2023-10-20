@@ -369,16 +369,19 @@ let state = State.create ()
 
 let current_output = ref Main
 
-let switch_to_output new_ =
-  match !current_output, new_ with
-  | Main, Main | Split_dwarf, Split_dwarf -> ()
-  | Main, Split_dwarf ->
+let switch_to_split_dwarf () =
+  match !current_output with
+  | Split_dwarf -> ()
+  | Main ->
     State.assign ~value:state main_state;
     State.assign ~value:split_dwarf_state state
-  | Split_dwarf, Main ->
+
+let switch_to_binary () =
+  match !current_output with
+  | Main -> ()
+  | Split_dwarf ->
     State.assign ~value:state split_dwarf_state;
     State.assign ~value:main_state state
-
 
 (* Cannot use Emitaux directly here or there would be a circular dep *)
 let create_asm_file = ref true
@@ -408,6 +411,10 @@ let reset_asm_code () =
   State.reset split_dwarf_state;
   State.reset main_state;
   current_output := Main
+
+let switch_to_output = function
+  | Split_dwarf -> switch_to_split_dwarf ()
+  | Main -> switch_to_binary ()
 
 let generate_code output asm =
   switch_to_output output;

@@ -32,6 +32,8 @@ let emit0 ~asm_directives ~compilation_unit_proto_die
     (fun location_list -> Debug_loc_table.insert debug_loc_table location_list)
     assigned_abbrevs.dwarf_4_location_lists;
   let debug_abbrev_label = Asm_label.for_section (DWARF Debug_abbrev) in
+  print_endline (string_of_int (List.length assigned_abbrevs.dies));
+  A.switch_to_split_dwarf ();
   let debug_info =
     Profile.record "debug_info_section"
       (fun () ->
@@ -39,6 +41,7 @@ let emit0 ~asm_directives ~compilation_unit_proto_die
           ~debug_abbrev_label ~compilation_unit_header_label)
       ()
   in
+  A.switch_to_binary ();
   Profile.record "dwarf_world_emit"
     (fun () ->
       A.switch_to_section (DWARF Debug_info);

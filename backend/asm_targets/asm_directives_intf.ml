@@ -60,6 +60,10 @@ module type Arg = sig
     val section :
       ?delayed:bool -> string list -> string option -> string list -> unit
 
+    val switch_to_split_dwarf : unit -> unit
+
+    val switch_to_binary : unit -> unit
+
     val text : unit -> unit
 
     val new_line : unit -> unit
@@ -96,6 +100,9 @@ module type S = sig
       become not at the start (e.g. during linking).
   *)
   val switch_to_section : Asm_section.t -> unit
+
+  val switch_to_split_dwarf : unit -> unit
+  val switch_to_binary : unit -> unit
 
   (** Called at the beginning of the assembly generation and only if the dwarf
       flag has been set. *)

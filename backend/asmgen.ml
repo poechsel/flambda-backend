@@ -468,7 +468,9 @@ let compile_unit ~output_prefix ~asm_filename ~keep_asm
            if assemble_result <> 0
            then raise(Error(Assembler_error asm_filename))
          in
+         print_endline asm_filename;
          assemble X86_proc.Main asm_filename obj_filename;
+         print_endline split_dwarf_asm_filename;
          if !Dwarf_flags.split_dwarf then
           assemble X86_proc.Split_dwarf split_dwarf_asm_filename split_dwarf_obj_filename
        end;

@@ -68,6 +68,8 @@ module D : sig
 
   (* If data is true then null bytes are used for padding,
      otherwise nops are used *)
+  val switch_to_split_dwarf : unit -> unit
+  val switch_to_binary : unit -> unit
   val align: data:bool -> int -> unit
   val byte: constant -> unit
   val bytes: string -> unit

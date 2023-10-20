@@ -76,6 +76,8 @@ let mem64_rip typ ?(ofs = 0) s =
 
 module D = struct
   let section ?(delayed=false) segment flags args = directive (Section (segment, flags, args, delayed))
+  let switch_to_split_dwarf () = switch_to_split_dwarf ()
+  let switch_to_binary () = switch_to_binary ()
   let align ~data n = directive (Align (data, n))
   let byte n = directive (Byte n)
   let bytes s = directive (Bytes s)

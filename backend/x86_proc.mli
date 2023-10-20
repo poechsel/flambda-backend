@@ -53,6 +53,9 @@ type output =
   | Main
   | Split_dwarf
 
+val switch_to_split_dwarf : unit -> unit
+
+val switch_to_binary : unit -> unit
 
 val output_channel_split_dwarf : out_channel ref
 
