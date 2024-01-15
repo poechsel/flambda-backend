@@ -17,6 +17,7 @@
 
 /* Signal handling, code common to the bytecode and native systems */
 
+#include "mimalloc-override.h"
 #include <signal.h>
 #include <errno.h>
 #include "caml/config.h"

@@ -15,6 +15,7 @@
 /**************************************************************************/
 #define CAML_INTERNALS
 
+#include "mimalloc-override.h"
 #include <stdlib.h>
 #include <string.h>
 

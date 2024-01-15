@@ -793,6 +793,8 @@ runtime_NATIVE_SHARED_LIBRARIES += $(RUNTIME_DIR)/libasmrun_shared.$(SO)
 endif
 endif
 
+$(RUNTIME_DIR)/mimalloc.o:
+	$(CC)  $(OC_CFLAGS) $(CFLAGS) $(OC_CPPFLAGS) $(CPPFLAGS) -o $@ -c -fPIC -I $(RUNTIME_DIR)/../../../../external/mimalloc/include $(RUNTIME_DIR)/../../../../external/mimalloc/src/static.c
 ## List of object files for each target
 
 libcamlrun_OBJECTS = $(runtime_BYTECODE_C_SOURCES:.c=.b.$(O))
@@ -809,23 +811,23 @@ libcamlruni_OBJECTS = $(runtime_BYTECODE_C_SOURCES:.c=.bi.$(O))
 libcamlrunpic_OBJECTS = $(runtime_BYTECODE_C_SOURCES:.c=.bpic.$(O))
 
 libasmrun_OBJECTS = \
-  $(runtime_NATIVE_C_SOURCES:.c=.n.$(O)) $(runtime_ASM_OBJECTS)
+  $(runtime_NATIVE_C_SOURCES:.c=.n.$(O)) $(runtime_ASM_OBJECTS) $(RUNTIME_DIR)/mimalloc.o
 
 libasmrund_OBJECTS = \
-  $(runtime_NATIVE_C_SOURCES:.c=.nd.$(O)) $(runtime_ASM_OBJECTS:.$(O)=.d.$(O))
+  $(runtime_NATIVE_C_SOURCES:.c=.nd.$(O)) $(runtime_ASM_OBJECTS:.$(O)=.d.$(O)) $(RUNTIME_DIR)/mimalloc.o
 
 libasmruni_OBJECTS = \
-  $(runtime_NATIVE_C_SOURCES:.c=.ni.$(O)) $(runtime_ASM_OBJECTS:.$(O)=.i.$(O))
+  $(runtime_NATIVE_C_SOURCES:.c=.ni.$(O)) $(runtime_ASM_OBJECTS:.$(O)=.i.$(O)) $(RUNTIME_DIR)/mimalloc.o
 
 libasmrunpic_OBJECTS = $(runtime_NATIVE_C_SOURCES:.c=.npic.$(O)) \
-  $(runtime_ASM_OBJECTS:.$(O)=_libasmrunpic.$(O))
+  $(runtime_ASM_OBJECTS:.$(O)=_libasmrunpic.$(O)) $(RUNTIME_DIR)/mimalloc.o
 
 ## General (non target-specific) assembler and compiler flags
 
 ifeq "$(RUNTIME_SUFFIX)" "4"
   runtime_CPPFLAGS = -DCAMLDLLIMPORT= -DIN_CAML_RUNTIME -Wno-strict-prototypes -Wno-missing-prototypes -Wno-implicit-function-declaration -DCAML_NAME_SPACE
 else
-  runtime_CPPFLAGS = -DCAMLDLLIMPORT= -DIN_CAML_RUNTIME
+  runtime_CPPFLAGS = -I $(RUNTIME_DIR)/../../../../external/mimalloc/include -DCAMLDLLIMPORT= -DIN_CAML_RUNTIME
 endif
 ocamlrund_CPPFLAGS = -DDEBUG
 ocamlruni_CPPFLAGS = -DCAML_INSTR
@@ -943,22 +945,22 @@ $(RUNTIME_DIR)/ocamlrun$(EXE): $(RUNTIME_DIR)/prims.$(O) $(RUNTIME_DIR)/libcamlr
 $(RUNTIME_DIR)/ocamlruns$(EXE): $(RUNTIME_DIR)/prims.$(O) $(RUNTIME_DIR)/libcamlrun_non_shared.$(A)
 	$(V_MKEXE)$(call MKEXE_VIA_CC,$@,$^ $(BYTECCLIBS))
 
-$(RUNTIME_DIR)/libcamlrun.$(A): $(libcamlrun_OBJECTS)
+$(RUNTIME_DIR)/libcamlrun.$(A): $(libcamlrun_OBJECTS) $(RUNTIME_DIR)/mimalloc.o
 	$(V_MKLIB)$(call MKLIB,$@, $^)
 
-$(RUNTIME_DIR)/libcamlrun_non_shared.$(A): $(libcamlrun_non_shared_OBJECTS)
+$(RUNTIME_DIR)/libcamlrun_non_shared.$(A): $(libcamlrun_non_shared_OBJECTS) $(RUNTIME_DIR)/mimalloc.o
 	$(V_MKLIB)$(call MKLIB,$@, $^)
 
 $(RUNTIME_DIR)/ocamlrund$(EXE): $(RUNTIME_DIR)/prims.$(O) $(RUNTIME_DIR)/libcamlrund.$(A)
 	$(V_MKEXE)$(MKEXE) $(MKEXEDEBUGFLAG) -o $@ $^ $(BYTECCLIBS)
 
-$(RUNTIME_DIR)/libcamlrund.$(A): $(libcamlrund_OBJECTS)
+$(RUNTIME_DIR)/libcamlrund.$(A): $(libcamlrund_OBJECTS)  $(RUNTIME_DIR)/mimalloc.o
 	$(V_MKLIB)$(call MKLIB,$@, $^)
 
 $(RUNTIME_DIR)/ocamlruni$(EXE): $(RUNTIME_DIR)/prims.$(O) $(RUNTIME_DIR)/libcamlruni.$(A)
 	$(V_MKEXE)$(MKEXE) -o $@ $^ $(INSTRUMENTED_RUNTIME_LIBS) $(BYTECCLIBS)
 
-$(RUNTIME_DIR)/libcamlruni.$(A): $(libcamlruni_OBJECTS)
+$(RUNTIME_DIR)/libcamlruni.$(A): $(libcamlruni_OBJECTS) $(RUNTIME_DIR)/mimalloc.o
 	$(V_MKLIB)$(call MKLIB,$@, $^)
 
 $(RUNTIME_DIR)/libcamlrun_pic.$(A): $(libcamlrunpic_OBJECTS)
@@ -968,6 +970,7 @@ $(RUNTIME_DIR)/libcamlrun_shared.$(SO): $(libcamlrunpic_OBJECTS)
 	$(V_MKDLL)$(MKDLL) -o $@ $^ $(BYTECCLIBS)
 
 $(RUNTIME_DIR)/libasmrun.$(A): $(libasmrun_OBJECTS)
+	echo $(libasmrun_OBJECTS)
 	$(V_MKLIB)$(call MKLIB,$@, $^)
 
 $(RUNTIME_DIR)/libasmrund.$(A): $(libasmrund_OBJECTS)
