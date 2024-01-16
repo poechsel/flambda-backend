@@ -19,6 +19,7 @@
 #include "config.h"
 #include "misc.h"
 
+#include "mimalloc-override.h"
 #ifdef __cplusplus
 extern "C" {
 #endif

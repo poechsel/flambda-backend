@@ -827,7 +827,7 @@ libasmrunpic_OBJECTS = $(runtime_NATIVE_C_SOURCES:.c=.npic.$(O)) \
 ifeq "$(RUNTIME_SUFFIX)" "4"
   runtime_CPPFLAGS = -DCAMLDLLIMPORT= -DIN_CAML_RUNTIME -Wno-strict-prototypes -Wno-missing-prototypes -Wno-implicit-function-declaration -DCAML_NAME_SPACE
 else
-  runtime_CPPFLAGS = -I $(RUNTIME_DIR)/../../../../external/mimalloc/include -DCAMLDLLIMPORT= -DIN_CAML_RUNTIME
+  runtime_CPPFLAGS = -I $(RUNTIME_DIR)/caml -DCAMLDLLIMPORT= -DIN_CAML_RUNTIME
 endif
 ocamlrund_CPPFLAGS = -DDEBUG
 ocamlruni_CPPFLAGS = -DCAML_INSTR
