@@ -15,6 +15,8 @@
 
 /* Based on public-domain code from Berkeley Yacc */
 
+#define MIMALLOC_OVERRIDE_H
+
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
