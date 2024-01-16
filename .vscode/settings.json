@@ -4,9 +4,11 @@
                 "switch": "4.14.1"
         },
         "files.associations": {
+                "*.t": "cram",
                 "*.mlp": "ocaml",
                 "smmintrin.h": "c",
                 "tmmintrin.h": "c",
-                "pmmintrin.h": "c"
+                "pmmintrin.h": "c",
+                "mlvalues.h": "c"
         }
 }

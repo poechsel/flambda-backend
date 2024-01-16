@@ -438,7 +438,7 @@ mi_decl_nodiscard mi_decl_export mi_decl_restrict void* mi_heap_alloc_new_n(mi_h
 // (note: see `mimalloc-new-delete.h` for overriding the new/delete operators globally)
 // ---------------------------------------------------------------------------------------------
 #ifdef __cplusplus
-
+extern "C++" {
 #include <cstddef>     // std::size_t
 #include <cstdint>     // PTRDIFF_MAX
 #if (__cplusplus >= 201103L) || (_MSC_VER > 1900)  // C++11
@@ -575,7 +575,7 @@ template<class T1, class T2> bool operator==(const mi_heap_destroy_stl_allocator
 template<class T1, class T2> bool operator!=(const mi_heap_destroy_stl_allocator<T1>& x, const mi_heap_destroy_stl_allocator<T2>& y) mi_attr_noexcept { return (!x.is_equal(y)); }
 
 #endif // C++11
-
+}
 #endif // __cplusplus
 
 #endif
