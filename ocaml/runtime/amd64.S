@@ -646,6 +646,12 @@ CFI_STARTPROC
         C stack args        : begin=%r13 end=%r12 */
     /* Switch from OCaml to C */
         SWITCH_OCAML_TO_C
+        SWITCH_C_TO_OCAML
+        SWITCH_OCAML_TO_C
+        SWITCH_C_TO_OCAML
+        SWITCH_OCAML_TO_C
+        SWITCH_C_TO_OCAML
+        SWITCH_OCAML_TO_C
     /* we use %rbx (otherwise unused) to enable backtraces */
         movq    %rsp, %rbx
 #ifdef ASM_CFI_SUPPORTED
