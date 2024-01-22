@@ -616,6 +616,12 @@ LBL(caml_c_call):
         C function          : %rax */
     /* Switch from OCaml to C */
         SWITCH_OCAML_TO_C
+        SWITCH_C_TO_OCAML
+        SWITCH_OCAML_TO_C
+        SWITCH_C_TO_OCAML
+        SWITCH_OCAML_TO_C
+        SWITCH_C_TO_OCAML
+        SWITCH_OCAML_TO_C
     /* Make the alloc ptr available to the C code */
         movq    %r15, Caml_state(young_ptr)
     /* Call the function (address in %rax) */
