@@ -1635,7 +1635,10 @@ let close_one_function acc ~code_id ~external_env ~by_function_slot decl
   let acc, body =
     Variable.Map.fold
       (fun var value_slot (acc, body) ->
-        let var = VB.create var Flambda_uid.internal_not_actually_unique Name_mode.normal in
+        let var =
+          VB.create var Flambda_uid.internal_not_actually_unique
+            Name_mode.normal
+        in
         let named =
           Named.create_prim
             (Unary

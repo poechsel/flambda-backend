@@ -140,8 +140,9 @@ let compile_staticfail acc env ccenv ~(continuation : Continuation.t) ~args :
       let body = add_remaining_end_regions acc after_everything in
       fun acc ccenv ->
         CC.close_let acc ccenv
-          [Ident.create_local "unit",
-          Flambda_uid.internal_not_actually_unique, Flambda_kind.With_subkind.tagged_immediate]
+          [ ( Ident.create_local "unit",
+              Flambda_uid.internal_not_actually_unique,
+              Flambda_kind.With_subkind.tagged_immediate ) ]
           Not_user_visible
           (End_region { is_try_region = false; region })
           ~body
@@ -491,8 +492,9 @@ let restore_continuation_context acc env ccenv cont ~close_early body =
     if close_early
     then
       CC.close_let acc ccenv
-        [Ident.create_local "unit", 
-        Flambda_uid.internal_not_actually_unique,Flambda_kind.With_subkind.tagged_immediate]
+        [ ( Ident.create_local "unit",
+            Flambda_uid.internal_not_actually_unique,
+            Flambda_kind.With_subkind.tagged_immediate ) ]
         Not_user_visible
         (End_region { is_try_region = false; region })
         ~body:(fun acc ccenv -> body acc ccenv cont)
@@ -941,7 +943,8 @@ let rec cps acc env ccenv (lam : L.lambda) (k : cps_continuation)
           [new_id, Flambda_uid.internal_not_actually_unique, value_kind]
           User_visible (Simple new_value) ~body)
       k_exn
-  | Llet ((Strict | Alias | StrictOpt), _layout, id, _uid, defining_expr, Lvar id')
+  | Llet
+      ((Strict | Alias | StrictOpt), _layout, id, _uid, defining_expr, Lvar id')
     when Ident.same id id' ->
     (* Simplif already simplifies such bindings, but we can generate new ones
        when translating primitives (see the Lprim case below). *)
@@ -1166,16 +1169,18 @@ let rec cps acc env ccenv (lam : L.lambda) (k : cps_continuation)
     let ccenv = CCenv.set_not_at_toplevel ccenv in
     let handler k acc env ccenv =
       CC.close_let acc ccenv
-        [Ident.create_local "unit",
-        Flambda_uid.internal_not_actually_unique, Flambda_kind.With_subkind.tagged_immediate]
+        [ ( Ident.create_local "unit",
+            Flambda_uid.internal_not_actually_unique,
+            Flambda_kind.With_subkind.tagged_immediate ) ]
         Not_user_visible
         (End_region { is_try_region = true; region })
         ~body:(fun acc ccenv -> cps_tail acc env ccenv handler k k_exn)
     in
     let begin_try_region body =
       CC.close_let acc ccenv
-        [region, 
-        Flambda_uid.internal_not_actually_unique, Flambda_kind.With_subkind.region]
+        [ ( region,
+            Flambda_uid.internal_not_actually_unique,
+            Flambda_kind.With_subkind.region ) ]
         Not_user_visible
         (Begin_region { is_try_region = true })
         ~body
@@ -1269,8 +1274,9 @@ let rec cps acc env ccenv (lam : L.lambda) (k : cps_continuation)
   | Lexclave body ->
     let region = Env.current_region env in
     CC.close_let acc ccenv
-      [Ident.create_local "unit",
-      Flambda_uid.internal_not_actually_unique, Flambda_kind.With_subkind.tagged_immediate]
+      [ ( Ident.create_local "unit",
+          Flambda_uid.internal_not_actually_unique,
+          Flambda_kind.With_subkind.tagged_immediate ) ]
       Not_user_visible
       (End_region { is_try_region = false; region })
       ~body:(fun acc ccenv ->
@@ -1464,8 +1470,8 @@ and cps_function_bindings env
               _
             } -> (
           match
-            Simplif.split_default_wrapper ~id:fun_id ~uid:fun_uid ~kind ~params ~body:fbody
-              ~return ~attr ~loc ~ret_mode ~mode ~region
+            Simplif.split_default_wrapper ~id:fun_id ~uid:fun_uid ~kind ~params
+              ~body:fbody ~return ~attr ~loc ~ret_mode ~mode ~region
           with
           | [(id, uid, L.Lfunction lfun)] -> [id, uid, lfun]
           | [(id1, uid1, L.Lfunction lfun1); (id2, uid2, L.Lfunction lfun2)] ->
@@ -1527,7 +1533,8 @@ and cps_function_bindings env
         def)
     bindings_with_wrappers
 
-and cps_function env ~fid ~fuid ~(recursive : Recursive.t) ?precomputed_free_idents
+and cps_function env ~fid ~fuid ~(recursive : Recursive.t)
+    ?precomputed_free_idents
     ({ kind; params; return; body; attr; loc; mode; ret_mode; region } :
       L.lfunction) : Function_decl.t =
   let first_complex_local_param =
@@ -1612,11 +1619,12 @@ and cps_function env ~fid ~fuid ~(recursive : Recursive.t) ?precomputed_free_ide
     in
     cps_tail acc new_env ccenv body body_cont body_exn_cont
   in
-  Function_decl.create ~let_rec_ident:(Some fid) ~let_rec_uid:fuid ~function_slot ~kind ~params
-    ~params_arity ~removed_params ~return ~return_continuation:body_cont
-    ~exn_continuation ~my_region ~body ~attr ~loc ~free_idents_of_body recursive
-    ~closure_alloc_mode:mode ~first_complex_local_param
-    ~contains_no_escaping_local_allocs:region ~result_mode:ret_mode
+  Function_decl.create ~let_rec_ident:(Some fid) ~let_rec_uid:fuid
+    ~function_slot ~kind ~params ~params_arity ~removed_params ~return
+    ~return_continuation:body_cont ~exn_continuation ~my_region ~body ~attr ~loc
+    ~free_idents_of_body recursive ~closure_alloc_mode:mode
+    ~first_complex_local_param ~contains_no_escaping_local_allocs:region
+    ~result_mode:ret_mode
 
 and cps_switch acc env ccenv (switch : L.lambda_switch) ~condition_dbg
     ~scrutinee (k : Continuation.t) (k_exn : Continuation.t) : Expr_with_acc.t =
