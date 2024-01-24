@@ -694,17 +694,10 @@ let rec comp_expr stack_info env exp sz cont =
       Stack.push to_compile functions_to_compile;
       comp_args stack_info env (List.map (fun n -> Lvar n) fv) sz
         (Kclosure(lbl, List.length fv) :: cont)
-<<<<<<< HEAD
-  | Llet(_, _k, id, arg, body)
-  | Lmutlet(_k, id, arg, body) ->
-      comp_expr stack_info env arg sz
-        (Kpush :: comp_expr stack_info (add_var id (sz+1) env) body (sz+1)
-=======
   | Llet(_, _k, id, _uid, arg, body)
   | Lmutlet(_k, id, _uid, arg, body) ->
-      comp_expr env arg sz
-        (Kpush :: comp_expr (add_var id (sz+1) env) body (sz+1)
->>>>>>> 7a9e2d6d2 (Propagate Uids for variables)
+      comp_expr stack_info env arg sz
+        (Kpush :: comp_expr stack_info (add_var id (sz+1) env) body (sz+1)
           (add_pop 1 cont))
   | Lletrec(decl, body) ->
       let ndecl = List.length decl in

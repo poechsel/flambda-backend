@@ -16,11 +16,8 @@
 open Misc
 open Asttypes
 
-<<<<<<< HEAD
 type constant = Typedtree.constant
-=======
 module Uid = Shape.Uid
->>>>>>> 7a9e2d6d2 (Propagate Uids for variables)
 
 type mutable_flag = Immutable | Immutable_unique | Mutable
 
@@ -1320,19 +1317,11 @@ let shallow_map ~tail ~non_tail:f = function
       }
   | Lfunction { kind; params; return; body; attr; loc; mode; ret_mode; region } ->
       Lfunction { kind; params; return; body = f body; attr; loc;
-<<<<<<< HEAD
                   mode; ret_mode; region }
-  | Llet (str, layout, v, e1, e2) ->
-      Llet (str, layout, v, f e1, tail e2)
-  | Lmutlet (layout, v, e1, e2) ->
-      Lmutlet (layout, v, f e1, tail e2)
-=======
-                  mode; region }
   | Llet (str, layout, v, uid, e1, e2) ->
       Llet (str, layout, v, uid, f e1, tail e2)
   | Lmutlet (layout, v, uid, e1, e2) ->
       Lmutlet (layout, v, uid, f e1, tail e2)
->>>>>>> 7a9e2d6d2 (Propagate Uids for variables)
   | Lletrec (idel, e2) ->
       Lletrec (List.map (fun (v, uid, e) -> (v, uid, f e)) idel, tail e2)
   | Lprim (Psequand as p, [l1; l2], loc)

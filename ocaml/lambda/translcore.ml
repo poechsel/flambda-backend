@@ -1218,7 +1218,6 @@ and transl_apply ~scopes
   in
   build_apply lam [] loc position mode args
 
-<<<<<<< HEAD
 (* There are two cases in function translation:
     - [Tupled]. It takes a tupled argument, and we can flatten it.
     - [Curried]. It takes each argument individually.
@@ -1242,92 +1241,6 @@ and transl_function_without_attributes
            hard to calculate a detailed layout that the middle-end can
            use for optimizations. *)
         layout_of_sort loc return_sort
-=======
-and uids_of_vars cases =
-  let tbl = ref (Ident.Tbl.create 42) in
-  let add_case (case : Typedtree.value Typedtree.case) =
-    let var_list = Typedtree.pat_bound_idents_full Jkind.Sort.value case.c_lhs in
-    List.iter (fun (ident, _loc, _type_expr, uid, _mode) ->
-        Ident.Tbl.add !tbl ident uid)
-      var_list
-  in
-  List.iter add_case cases;
-  !tbl
-
-and transl_curried_function
-      ~scopes ~arg_sort ~arg_layout ~arg_mode ~return_sort ~return_layout loc repr ~region
-      ~curry partial warnings (param:Ident.t) cases =
-  let max_arity = Lambda.max_arity () in
-  let rec loop ~scopes ~arg_sort ~arg_layout ~return_sort ~return_layout loc
-            ~arity ~region ~curry ~arg_mode partial warnings (param:Ident.t) cases =
-    match curry, cases with
-      More_args {partial_mode},
-      [{c_lhs=pat; c_guard=None;
-        c_rhs={exp_desc =
-                 Texp_function
-                   { arg_label = _; param = param'; cases = cases';
-                     partial = partial'; region = region';
-                     curry = curry';
-                     warnings = warnings'; arg_mode = arg_mode'; arg_sort; ret_sort };
-               exp_env; exp_type; exp_loc }}]
-      when arity < max_arity ->
-      (* Lfunctions must have local returns after the first local arg/ret *)
-      if Parmatch.inactive ~partial pat
-      then
-        let partial_mode = transl_alloc_mode partial_mode in
-        let ((fnkind, params, return_layout, region), body) =
-          let return_layout =
-            function_return_layout exp_env exp_loc ret_sort exp_type
-          in
-          let arg_layout =
-            function_arg_layout exp_env exp_loc arg_sort exp_type
-          in
-          loop ~scopes ~arg_sort ~arg_layout ~arg_mode:arg_mode' ~return_sort:ret_sort
-            ~return_layout exp_loc ~arity:(arity + 1) ~region:region'
-            ~curry:curry' partial' warnings' param' cases'
-        in
-        let fnkind =
-          match partial_mode, fnkind with
-          | _, Tupled ->
-             (* arity > 1 prevents this *)
-             assert false
-          | Alloc_heap, (Curried _ as c) -> c
-          | Alloc_local, Curried {nlocal} ->
-             (* all subsequent curried arrows should be local *)
-             assert (nlocal = List.length params);
-             Curried {nlocal = nlocal + 1}
-        in
-        let arg_mode = transl_alloc_mode arg_mode in
-        let params = {
-          name = param ;
-          var_uid = Ident.Tbl.find_opt (uids_of_vars cases) param
-                    |> Option.value ~default:Uid.internal_not_actually_unique ;
-          layout = arg_layout ;
-          attributes = Lambda.default_param_attribute ;
-          mode = arg_mode
-        } :: params
-        in
-        ((fnkind, params, return_layout, region),
-         Matching.for_function ~scopes ~arg_sort ~arg_layout ~return_layout loc
-           None (Lvar param) [pat, body] partial)
-      else begin
-        begin match partial with
-        | Total ->
-            let prev = Warnings.backup () in
-            Warnings.restore warnings;
-            Location.prerr_warning pat.pat_loc
-              Match_on_mutable_state_prevent_uncurry;
-            Warnings.restore prev
-        | Partial -> ()
-        end;
-        transl_tupled_function ~scopes ~arg_sort ~arg_layout ~arg_mode
-          ~return_sort:ret_sort ~return_layout ~arity ~region ~curry
-          loc repr partial param cases
-      end
-    | curry, cases ->
-      transl_tupled_function ~scopes ~arg_sort ~arg_layout ~arg_mode ~return_sort
-        ~return_layout ~arity ~region ~curry loc repr partial param cases
->>>>>>> 7a9e2d6d2 (Propagate Uids for variables)
   in
   match
     transl_tupled_function ~scopes loc params body
@@ -1404,9 +1317,19 @@ and transl_tupled_function
           ((Tupled, tparams, return_layout, region, return_mode), body)
     with Matching.Cannot_flatten -> None
       end
-<<<<<<< HEAD
   | _ -> None
 
+and uids_of_vars cases =
+  let tbl = ref (Ident.Tbl.create 42) in
+  let add_case (case : Typedtree.value Typedtree.case) =
+    let var_list = Typedtree.pat_bound_idents_full Jkind.Sort.value case.c_lhs in
+    List.iter (fun (ident, _loc, _type_expr, uid, _mode) ->
+        Ident.Tbl.add !tbl ident uid)
+      var_list
+  in
+  List.iter add_case cases;
+  !tbl
+  
 and transl_curried_function ~scopes loc repr params body
     ~return_sort ~return_layout ~return_mode ~region ~mode
   =
@@ -1439,6 +1362,8 @@ and transl_curried_function ~scopes loc repr params body
         let arg_mode = transl_alloc_mode fc_arg_mode in
         let param =
           { name = fc_param;
+            var_uid = Ident.Tbl.find_opt (uids_of_vars fc_cases) fc_param
+                      |> Option.value ~default:Uid.internal_not_actually_unique ;
             layout = arg_layout;
             attributes = Lambda.default_param_attribute;
             mode = arg_mode;
@@ -1465,6 +1390,7 @@ and transl_curried_function ~scopes loc repr params body
         let arg_mode = transl_alloc_mode fp_mode in
         let param =
           { name = fp_param;
+            var_uid = Uid.internal_not_actually_unique (* CR tnowak: Verify *);
             layout = arg_layout;
             attributes = Lambda.default_param_attribute;
             mode = arg_mode;
@@ -1576,50 +1502,6 @@ and transl_function ~in_new_scope ~scopes e params body
   let mode = transl_alloc_mode alloc_mode in
   let assume_zero_alloc =
     Translattribute.get_assume_zero_alloc ~with_warnings:false attrs
-=======
-  | _ -> transl_function0 ~scopes ~arg_sort ~arg_layout ~arg_mode ~return_sort
-           ~return_layout loc ~region ~partial_mode
-           repr partial param cases
-
-and transl_function0
-      ~scopes ~arg_sort ~arg_layout ~arg_mode ~return_sort ~return_layout loc ~region
-      ~partial_mode repr partial (param:Ident.t) cases =
-    let body =
-      Matching.for_function ~scopes ~arg_sort ~arg_layout ~return_layout loc
-        repr (Lvar param) (transl_cases ~scopes return_sort cases) partial
-    in
-    let region = region || not (may_allocate_in_region body) in
-    let nlocal =
-      if not region then 1
-      else match partial_mode with
-        | Alloc_local -> 1
-        | Alloc_heap -> 0
-    in
-    let arg_mode = transl_alloc_mode arg_mode in
-    ((Curried {nlocal},
-      [{ name = param;
-         var_uid = Ident.Tbl.find_opt (uids_of_vars cases) param
-            |> Option.value ~default:Uid.internal_not_actually_unique;
-         layout = arg_layout;
-         attributes = Lambda.default_param_attribute;
-         mode = arg_mode}],
-      return_layout, region), body)
-
-and transl_function ~in_new_scope ~scopes e alloc_mode param arg_mode arg_sort return_sort
-      cases partial warnings region curry =
-  let mode = transl_alloc_mode alloc_mode in
-  let attrs =
-    (* Collect attributes from the Pexp_newtype node for locally abstract types.
-       Otherwise we'd ignore the attribute in, e.g.;
-           fun [@inline] (type a) x -> ...
-    *)
-    List.fold_left
-      (fun attrs (extra_exp, _, extra_attrs) ->
-         match extra_exp with
-         | Texp_newtype _ -> extra_attrs @ attrs
-         | (Texp_constraint _ | Texp_coerce _ | Texp_poly _) -> attrs)
-      e.exp_attributes e.exp_extra
->>>>>>> 7a9e2d6d2 (Propagate Uids for variables)
   in
   let scopes =
     if in_new_scope then begin
@@ -1645,21 +1527,9 @@ and transl_function ~in_new_scope ~scopes e alloc_mode param arg_mode arg_sort r
   let ((kind, params, return, region, ret_mode), body) =
     event_function ~scopes e
       (function repr ->
-<<<<<<< HEAD
          transl_function_without_attributes
            ~mode ~return_sort ~return_mode
            ~scopes e.exp_loc repr ~region params body)
-=======
-         let pl =
-           push_defaults e.exp_loc arg_mode arg_sort cases partial warnings
-         in
-         let return_layout =
-           function_return_layout e.exp_env e.exp_loc return_sort e.exp_type
-         in
-         transl_curried_function ~arg_sort ~arg_layout ~arg_mode ~return_sort
-           ~return_layout ~scopes e.exp_loc repr ~region ~curry
-           partial warnings param pl)
->>>>>>> 7a9e2d6d2 (Propagate Uids for variables)
   in
   let attr = function_attribute_disallowing_arity_fusion in
   let loc = of_location ~scopes e.exp_loc in

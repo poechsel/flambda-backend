@@ -17,11 +17,8 @@
 
 open Asttypes
 
-<<<<<<< HEAD
 type constant = Typedtree.constant
-=======
 module Uid = Shape.Uid
->>>>>>> 7a9e2d6d2 (Propagate Uids for variables)
 
 (* Overriding Asttypes.mutable_flag *)
 type mutable_flag = Immutable | Immutable_unique | Mutable

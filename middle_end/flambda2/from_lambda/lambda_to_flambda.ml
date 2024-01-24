@@ -139,22 +139,12 @@ let compile_staticfail acc env ccenv ~(continuation : Continuation.t) ~args :
       in
       let body = add_remaining_end_regions acc after_everything in
       fun acc ccenv ->
-<<<<<<< HEAD
         CC.close_let acc ccenv
-          [Ident.create_local "unit", Flambda_kind.With_subkind.tagged_immediate]
+          [Ident.create_local "unit",
+          Flambda_uid.internal_not_actually_unique, Flambda_kind.With_subkind.tagged_immediate]
           Not_user_visible
           (End_region { is_try_region = false; region })
           ~body
-=======
-        match region with
-        | Try_with _ -> body acc ccenv
-        | Regular region_ident ->
-          CC.close_let acc ccenv
-            [ ( Ident.create_local "unit",
-                Flambda_uid.internal_not_actually_unique,
-                Flambda_kind.With_subkind.tagged_immediate ) ]
-            Not_user_visible (End_region region_ident) ~body
->>>>>>> 7a9e2d6d2 (Propagate Uids for variables)
     in
     let no_end_region after_everything = after_everything in
     match
@@ -191,9 +181,9 @@ let rec try_to_find_location (lam : L.lambda) =
   | Lsend (_, _, _, _, _, _, loc, _)
   | Levent (_, { lev_loc = loc; _ }) ->
     loc
-  | Llet (_, _, _, lam, _)
-  | Lmutlet (_, _, lam, _)
-  | Lletrec ((_, lam) :: _, _)
+  | Llet (_, _, _, _, lam, _)
+  | Lmutlet (_, _, _, lam, _)
+  | Lletrec ((_, _, lam) :: _, _)
   | Lifthenelse (lam, _, _, _)
   | Lstaticcatch (lam, _, _, _)
   | Lstaticraise (_, lam :: _)
@@ -501,16 +491,10 @@ let restore_continuation_context acc env ccenv cont ~close_early body =
     if close_early
     then
       CC.close_let acc ccenv
-<<<<<<< HEAD
-        [Ident.create_local "unit", Flambda_kind.With_subkind.tagged_immediate]
+        [Ident.create_local "unit", 
+        Flambda_uid.internal_not_actually_unique,Flambda_kind.With_subkind.tagged_immediate]
         Not_user_visible
         (End_region { is_try_region = false; region })
-=======
-        [ ( Ident.create_local "unit",
-            Flambda_uid.internal_not_actually_unique,
-            Flambda_kind.With_subkind.tagged_immediate ) ]
-        Not_user_visible (End_region region)
->>>>>>> 7a9e2d6d2 (Propagate Uids for variables)
         ~body:(fun acc ccenv -> body acc ccenv cont)
     else
       let ({ continuation_closing_region; continuation_after_closing_region }
@@ -858,19 +842,7 @@ let rec cps acc env ccenv (lam : L.lambda) (k : cps_continuation)
         body bindings
     in
     let_expr acc ccenv
-<<<<<<< HEAD
-  | Llet ((Strict | Alias | StrictOpt), layout, id, Lconst const, body) ->
-=======
   | Llet ((Strict | Alias | StrictOpt), layout, id, uid, Lconst const, body) ->
-    let value_kind =
-      match layout with
-      | Pvalue value_kind -> value_kind
-      | Ptop | Pbottom | Punboxed_float | Punboxed_int _ | Punboxed_vector _
-      | Punboxed_product _ ->
-        Misc.fatal_errorf "Constant with non-value layout: %a %a"
-          Printlambda.structured_constant const Printlambda.layout layout
-    in
->>>>>>> 7a9e2d6d2 (Propagate Uids for variables)
     (* This case avoids extraneous continuations. *)
     let body acc ccenv = cps acc env ccenv body k k_exn in
     let kind =
@@ -969,17 +941,13 @@ let rec cps acc env ccenv (lam : L.lambda) (k : cps_continuation)
           [new_id, Flambda_uid.internal_not_actually_unique, value_kind]
           User_visible (Simple new_value) ~body)
       k_exn
-<<<<<<< HEAD
-  | Llet ((Strict | Alias | StrictOpt), _layout, id, defining_expr, Lvar id')
+  | Llet ((Strict | Alias | StrictOpt), _layout, id, _uid, defining_expr, Lvar id')
     when Ident.same id id' ->
     (* Simplif already simplifies such bindings, but we can generate new ones
        when translating primitives (see the Lprim case below). *)
     (* This case must not be moved above the case for let-bound primitives. *)
     cps acc env ccenv defining_expr k k_exn
-  | Llet ((Strict | Alias | StrictOpt), layout, id, defining_expr, body) ->
-=======
   | Llet ((Strict | Alias | StrictOpt), layout, id, uid, defining_expr, body) ->
->>>>>>> 7a9e2d6d2 (Propagate Uids for variables)
     let_cont_nonrecursive_with_extra_params acc env ccenv ~is_exn_handler:false
       ~params:[id, uid, is_user_visible env id, layout]
       ~body:(fun acc env ccenv after_defining_expr ->
@@ -1196,31 +1164,23 @@ let rec cps acc env ccenv (lam : L.lambda) (k : cps_continuation)
        same toplevel context, here we need to assume that all of the body could
        be behind a branch. *)
     let ccenv = CCenv.set_not_at_toplevel ccenv in
-<<<<<<< HEAD
     let handler k acc env ccenv =
       CC.close_let acc ccenv
-        [Ident.create_local "unit", Flambda_kind.With_subkind.tagged_immediate]
+        [Ident.create_local "unit",
+        Flambda_uid.internal_not_actually_unique, Flambda_kind.With_subkind.tagged_immediate]
         Not_user_visible
         (End_region { is_try_region = true; region })
         ~body:(fun acc ccenv -> cps_tail acc env ccenv handler k k_exn)
     in
     let begin_try_region body =
       CC.close_let acc ccenv
-        [region, Flambda_kind.With_subkind.region]
+        [region, 
+        Flambda_uid.internal_not_actually_unique, Flambda_kind.With_subkind.region]
         Not_user_visible
         (Begin_region { is_try_region = true })
         ~body
     in
     begin_try_region (fun acc ccenv ->
-=======
-    CC.close_let acc ccenv
-      [ ( region,
-          Flambda_uid.internal_not_actually_unique,
-          Flambda_kind.With_subkind.region ) ]
-      Not_user_visible
-      (Begin_region { try_region_parent = Some (Env.current_region env) })
-      ~body:(fun acc ccenv ->
->>>>>>> 7a9e2d6d2 (Propagate Uids for variables)
         maybe_insert_let_cont "try_with_result" kind k acc env ccenv
           (fun acc env ccenv k ->
             let_cont_nonrecursive_with_extra_params acc env ccenv
@@ -1255,19 +1215,7 @@ let rec cps acc env ccenv (lam : L.lambda) (k : cps_continuation)
                     apply_cont_with_extra_args acc env ccenv ~dbg k
                       (Some (IR.Pop { exn_handler = handler_continuation }))
                       [IR.Var body_result]))
-<<<<<<< HEAD
               ~handler:(handler k)))
-=======
-              ~handler:(fun acc env ccenv ->
-                CC.close_let acc ccenv
-                  [ ( Ident.create_local "unit",
-                      Flambda_uid.internal_not_actually_unique,
-                      Flambda_kind.With_subkind.tagged_immediate ) ]
-                  Not_user_visible (End_region region)
-                  ~body:(fun acc ccenv ->
-                    let env = Env.leaving_try_region env in
-                    cps_tail acc env ccenv handler k k_exn))))
->>>>>>> 7a9e2d6d2 (Propagate Uids for variables)
   | Lifthenelse (cond, ifso, ifnot, kind) ->
     let lam = switch_for_if_then_else ~cond ~ifso ~ifnot ~kind in
     cps acc env ccenv lam k k_exn
@@ -1321,16 +1269,10 @@ let rec cps acc env ccenv (lam : L.lambda) (k : cps_continuation)
   | Lexclave body ->
     let region = Env.current_region env in
     CC.close_let acc ccenv
-<<<<<<< HEAD
-      [Ident.create_local "unit", Flambda_kind.With_subkind.tagged_immediate]
+      [Ident.create_local "unit",
+      Flambda_uid.internal_not_actually_unique, Flambda_kind.With_subkind.tagged_immediate]
       Not_user_visible
       (End_region { is_try_region = false; region })
-=======
-      [ ( Ident.create_local "unit",
-          Flambda_uid.internal_not_actually_unique,
-          Flambda_kind.With_subkind.tagged_immediate ) ]
-      Not_user_visible (End_region region)
->>>>>>> 7a9e2d6d2 (Propagate Uids for variables)
       ~body:(fun acc ccenv ->
         let env = Env.leaving_region env in
         cps acc env ccenv body k k_exn)
@@ -1522,13 +1464,8 @@ and cps_function_bindings env
               _
             } -> (
           match
-<<<<<<< HEAD
-            Simplif.split_default_wrapper ~id:fun_id ~kind ~params ~body:fbody
+            Simplif.split_default_wrapper ~id:fun_id ~uid:fun_uid ~kind ~params ~body:fbody
               ~return ~attr ~loc ~ret_mode ~mode ~region
-=======
-            Simplif.split_default_wrapper ~id:fun_id ~uid:fun_uid ~kind ~params
-              ~body:fbody ~return ~attr ~loc ~mode ~region
->>>>>>> 7a9e2d6d2 (Propagate Uids for variables)
           with
           | [(id, uid, L.Lfunction lfun)] -> [id, uid, lfun]
           | [(id1, uid1, L.Lfunction lfun1); (id2, uid2, L.Lfunction lfun2)] ->
@@ -1590,16 +1527,9 @@ and cps_function_bindings env
         def)
     bindings_with_wrappers
 
-<<<<<<< HEAD
-and cps_function env ~fid ~(recursive : Recursive.t) ?precomputed_free_idents
+and cps_function env ~fid ~fuid ~(recursive : Recursive.t) ?precomputed_free_idents
     ({ kind; params; return; body; attr; loc; mode; ret_mode; region } :
       L.lfunction) : Function_decl.t =
-=======
-and cps_function env ~fid ~fuid ~(recursive : Recursive.t)
-    ?precomputed_free_idents
-    ({ kind; params; return; body; attr; loc; mode; region } : L.lfunction) :
-    Function_decl.t =
->>>>>>> 7a9e2d6d2 (Propagate Uids for variables)
   let first_complex_local_param =
     List.length params
     - match kind with Curried { nlocal } -> nlocal | Tupled -> 0
@@ -1682,19 +1612,11 @@ and cps_function env ~fid ~fuid ~(recursive : Recursive.t)
     in
     cps_tail acc new_env ccenv body body_cont body_exn_cont
   in
-<<<<<<< HEAD
-  Function_decl.create ~let_rec_ident:(Some fid) ~function_slot ~kind ~params
+  Function_decl.create ~let_rec_ident:(Some fid) ~let_rec_uid:fuid ~function_slot ~kind ~params
     ~params_arity ~removed_params ~return ~return_continuation:body_cont
     ~exn_continuation ~my_region ~body ~attr ~loc ~free_idents_of_body recursive
     ~closure_alloc_mode:mode ~first_complex_local_param
     ~contains_no_escaping_local_allocs:region ~result_mode:ret_mode
-=======
-  Function_decl.create ~let_rec_ident:(Some fid) ~let_rec_uid:fuid
-    ~function_slot ~kind ~params ~params_arity ~removed_params ~return
-    ~return_continuation:body_cont ~exn_continuation ~my_region ~body ~attr ~loc
-    ~free_idents_of_body recursive ~closure_alloc_mode:mode
-    ~first_complex_local_param ~contains_no_escaping_local_allocs:region
->>>>>>> 7a9e2d6d2 (Propagate Uids for variables)
 
 and cps_switch acc env ccenv (switch : L.lambda_switch) ~condition_dbg
     ~scrutinee (k : Continuation.t) (k_exn : Continuation.t) : Expr_with_acc.t =

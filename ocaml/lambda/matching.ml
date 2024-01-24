@@ -1976,16 +1976,11 @@ let inline_lazy_force_cond arg pos loc =
   let uidarg = Uid.internal_not_actually_unique in
   let varg = Lvar idarg in
   let tag = Ident.create_local "tag" in
-<<<<<<< HEAD
+  (* CR tnowak: verify *)
+  let uidtag = Uid.internal_not_actually_unique in
   let test_tag t =
     Lprim(Pintcomp Ceq, [Lvar tag; Lconst(Const_base(Const_int t))], loc)
   in
-=======
-  (* CR tnowak: verify *)
-  let uidtag = Uid.internal_not_actually_unique in
-  let tag_var = Lvar tag in
-  let force_fun = Lazy.force code_force_lazy_block in
->>>>>>> 7a9e2d6d2 (Propagate Uids for variables)
   Llet
     ( Strict,
       Lambda.layout_lazy,
@@ -3011,13 +3006,8 @@ let combine_constructor value_kind loc arg pat_env cstr partial ctx def
                       (Lprim (Pintcomp Ceq, [ Lvar tag; ext ], loc), act, rem, value_kind))
                   nonconsts default
               in
-<<<<<<< HEAD
-              Llet (Alias, Lambda.layout_block, tag,
-                    Lprim (Pfield (0, Pointer, Reads_agree), [ arg ], loc),
-=======
               Llet (Alias, Lambda.layout_block, tag, uid,
-                    Lprim (Pfield (0, Reads_agree), [ arg ], loc),
->>>>>>> 7a9e2d6d2 (Propagate Uids for variables)
+                    Lprim (Pfield (0, Pointer, Reads_agree), [ arg ], loc),
                     tests)
         in
         List.fold_right

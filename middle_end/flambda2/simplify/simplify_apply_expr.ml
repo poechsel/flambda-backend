@@ -562,16 +562,7 @@ let simplify_direct_partial_application ~simplify_expr dacc apply
           match applied_value with
           | Const _ | Symbol _ -> expr, cost_metrics, free_names
           | In_closure { var; value_slot; value = _ } ->
-<<<<<<< HEAD
-            let arg = VB.create var Name_mode.normal in
-=======
-            (* CR tnowak: verify *)
-            let arg =
-              VB.create var Flambda_uid.internal_not_actually_unique
-                Name_mode.normal
-            in
-            let kind = Value_slot.kind value_slot in
->>>>>>> 7a9e2d6d2 (Propagate Uids for variables)
+            let arg = VB.create var Flambda_uid.internal_not_actually_unique Name_mode.normal in
             let prim =
               P.Unary
                 ( Project_value_slot

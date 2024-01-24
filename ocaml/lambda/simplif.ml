@@ -758,13 +758,8 @@ and list_emit_tail_infos is_tail =
    'Some' constructor, only to deconstruct it immediately in the
    function's body. *)
 
-<<<<<<< HEAD
-let split_default_wrapper ~id:fun_id ~kind ~params ~return ~body
-      ~attr ~loc ~mode ~ret_mode ~region:orig_region =
-=======
 let split_default_wrapper ~id:fun_id ~uid:fun_uid ~kind ~params ~return ~body
-      ~attr ~loc ~mode ~region:orig_region =
->>>>>>> 7a9e2d6d2 (Propagate Uids for variables)
+      ~attr ~loc ~mode ~ret_mode ~region:orig_region =
   let rec aux map add_region = function
     (* When compiling [fun ?(x=expr) -> body], this is first translated
        to:
@@ -789,17 +784,12 @@ let split_default_wrapper ~id:fun_id ~uid:fun_uid ~kind ~params ~return ~body
           && not (List.mem_assoc optparam map)
       ->
         let wrapper_body, inner = aux ((optparam, id) :: map) add_region rest in
-<<<<<<< HEAD
-        Llet(Strict, k, id, def, wrapper_body), inner
+        Llet(Strict, k, id, uid,  def, wrapper_body), inner
     | Lregion (rest, ret) ->
         let wrapper_body, inner = aux map true rest in
         if may_allocate_in_region wrapper_body then
           Lregion (wrapper_body, ret), inner
         else wrapper_body, inner
-=======
-        Llet(Strict, k, id, uid, def, wrapper_body), inner
-    | Lregion (rest, _) -> aux map true rest
->>>>>>> 7a9e2d6d2 (Propagate Uids for variables)
     | Lexclave rest -> aux map true rest
     | _ when map = [] -> raise Exit
     | body ->
@@ -865,15 +855,9 @@ let split_default_wrapper ~id:fun_id ~uid:fun_uid ~kind ~params ~return ~body
     end;
     let body, inner = aux [] false body in
     let attr = { default_stub_attribute with check = attr.check } in
-<<<<<<< HEAD
-    [(fun_id, lfunction ~kind ~params ~return ~body ~attr ~loc ~mode ~ret_mode ~region:true); inner]
+    [(fun_id, fun_uid, lfunction ~kind ~params ~return ~body ~attr ~loc ~mode ~ret_mode ~region:true); inner]
   with Exit ->
-    [(fun_id, lfunction ~kind ~params ~return ~body ~attr ~loc ~mode ~ret_mode ~region:orig_region)]
-=======
-    [(fun_id, fun_uid, lfunction ~kind ~params ~return ~body ~attr ~loc ~mode ~region:true); inner]
-  with Exit ->
-    [(fun_id, fun_uid, lfunction ~kind ~params ~return ~body ~attr ~loc ~mode ~region:orig_region)]
->>>>>>> 7a9e2d6d2 (Propagate Uids for variables)
+    [(fun_id, fun_uid, lfunction ~kind ~params ~return ~body ~attr ~loc ~mode ~ret_mode ~region:orig_region)]
 
 (* Simplify local let-bound functions: if all occurrences are
    fully-applied function calls in the same "tail scope", replace the

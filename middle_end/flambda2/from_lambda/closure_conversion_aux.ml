@@ -763,20 +763,12 @@ module Function_decls = struct
         contains_no_escaping_local_allocs : bool
       }
 
-<<<<<<< HEAD
-    let create ~let_rec_ident ~function_slot ~kind ~params ~params_arity
+    let create ~let_rec_ident ~let_rec_uid ~function_slot ~kind ~params ~params_arity
         ~removed_params ~return ~return_continuation ~exn_continuation
         ~my_region ~body ~(attr : Lambda.function_attribute) ~loc
         ~free_idents_of_body recursive ~closure_alloc_mode
         ~first_complex_local_param ~result_mode
         ~contains_no_escaping_local_allocs =
-=======
-    let create ~let_rec_ident ~let_rec_uid ~function_slot ~kind ~params
-        ~params_arity ~removed_params ~return ~return_continuation
-        ~exn_continuation ~my_region ~body ~(attr : Lambda.function_attribute)
-        ~loc ~free_idents_of_body recursive ~closure_alloc_mode
-        ~first_complex_local_param ~contains_no_escaping_local_allocs =
->>>>>>> 7a9e2d6d2 (Propagate Uids for variables)
       let let_rec_ident =
         match let_rec_ident with
         | None -> Ident.create_local "unnamed_function"

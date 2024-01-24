@@ -192,15 +192,10 @@ and wrap_id_pos_list loc id_pos_list get_field lam =
     List.fold_left (fun (lam, fv, s) (id',pos,c) ->
       if Ident.Set.mem id' fv then
         let id'' = Ident.create_local (Ident.name id') in
-<<<<<<< HEAD
         let rhs = apply_coercion loc Alias c (get_field pos) in
         let fv_rhs = free_variables rhs in
-        (Llet(Alias, Lambda.layout_module_field, id'', rhs, lam),
+        (Llet(Alias, Lambda.layout_module_field, id'', Uid.internal_not_actually_unique, rhs, lam),
          Ident.Set.union fv fv_rhs,
-=======
-        (Llet(Alias, Lambda.layout_module_field, id'', Uid.internal_not_actually_unique,
-             apply_coercion loc Alias c (get_field pos),lam),
->>>>>>> 7a9e2d6d2 (Propagate Uids for variables)
          Ident.Map.add id' id'' s)
       else (lam, fv, s))
       (lam, fv, Ident.Map.empty) id_pos_list
