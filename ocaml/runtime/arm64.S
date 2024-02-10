@@ -101,13 +101,8 @@
 #define Caml_state(var) [DOMAIN_STATE_PTR, 8*domain_field_caml_##var]
 
 /* Globals and labels */
-#if defined(SYS_macosx)
 #define G(sym) _##sym
 #define L(lbl) L##lbl
-#else
-#define G(sym) sym
-#define L(lbl) .L##lbl
-#endif
 
 #if defined(SYS_macosx)
 

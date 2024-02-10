@@ -1078,7 +1078,7 @@ let emit_instr i =
           `	bl	{emit_symbol "caml_raise_exn"}\n`;
           `{record_frame Reg.Set.empty (Dbg_raise i.dbg)}\n`
         | Lambda.Raise_reraise ->
-          `	bl	{emit_symbol "caml_reraise_exn"}\n`;
+          `	bl	{emit_symbol (if Config.runtime5 then "caml_reraise_exn" else "caml_raise_exn")}\n`;
           `{record_frame Reg.Set.empty (Dbg_raise i.dbg)}\n`
         | Lambda.Raise_notrace ->
           `	mov	sp, {emit_reg reg_trap_ptr}\n`;
