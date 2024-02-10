@@ -22,6 +22,8 @@
 module type Flambda_backend_options = sig
   val ocamlcfg : unit -> unit
   val no_ocamlcfg : unit -> unit
+  val llvm : unit -> unit
+  val no_llvm : unit -> unit
   val dump_inlining_paths : unit -> unit
   val davail : unit -> unit
   val dranges : unit -> unit

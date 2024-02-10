@@ -14,6 +14,7 @@
 (*                                                                        *)
 (**************************************************************************)
 let use_ocamlcfg = ref true             (* -[no-]ocamlcfg *)
+let llvm = ref false (* -llvm *)
 let dump_cfg = ref false                (* -dcfg *)
 let cfg_invariants = ref false          (* -dcfg-invariants *)
 let cfg_equivalence_check = ref false   (* -dcfg-equivalence-check *)

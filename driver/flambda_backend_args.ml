@@ -29,6 +29,13 @@ let mk_no_ocamlcfg f =
   "-no-ocamlcfg", Arg.Unit f, " Do not use ocamlcfg"
 ;;
 
+let mk_llvm f =
+  "-llvm", Arg.Unit f, " Use llvm"
+
+let mk_no_llvm f =
+  "-no-llvm", Arg.Unit f, " Do not use llvm"
+;;
+
 let mk_dcfg f =
   "-dcfg", Arg.Unit f, " (undocumented)"
 ;;
@@ -594,6 +601,8 @@ let mk_no_symbol_visibility_protected f =
 module type Flambda_backend_options = sig
   val ocamlcfg : unit -> unit
   val no_ocamlcfg : unit -> unit
+  val llvm : unit -> unit
+  val no_llvm : unit -> unit
   val dump_inlining_paths : unit -> unit
   val davail : unit -> unit
   val dranges : unit -> unit
@@ -707,6 +716,8 @@ struct
     mk_ddebug_invariants F.ddebug_invariants;
     mk_ocamlcfg F.ocamlcfg;
     mk_no_ocamlcfg F.no_ocamlcfg;
+    mk_llvm F.llvm;
+    mk_no_llvm F.no_llvm;
     mk_dcfg F.dcfg;
     mk_dcfg_invariants F.dcfg_invariants;
     mk_dcfg_equivalence_check F.dcfg_equivalence_check;
@@ -845,6 +856,8 @@ module Flambda_backend_options_impl = struct
 
   let ocamlcfg = set' Flambda_backend_flags.use_ocamlcfg
   let no_ocamlcfg = clear' Flambda_backend_flags.use_ocamlcfg
+  let llvm = set' Flambda_backend_flags.llvm
+  let no_llvm = clear' Flambda_backend_flags.llvm
   let dcfg = set' Flambda_backend_flags.dump_cfg
   let dcfg_invariants = set' Flambda_backend_flags.cfg_invariants
   let dcfg_equivalence_check = set' Flambda_backend_flags.cfg_equivalence_check
