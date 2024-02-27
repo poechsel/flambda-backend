@@ -213,20 +213,106 @@ let find fn =
   with Not_found ->
     !auto_include_callback Dir.find fn
 
+
+module Libmap = struct
+
+  module One = struct
+    type t = {
+      rel_path : string;
+      entries : (string * string) array;
+    }
+    let read_size t = input_binary_int t
+
+    let read_item t =
+      let cu_len = input_binary_int t in
+      let cu = really_input_string t cu_len in
+      let path_len = input_binary_int t in
+      let path = really_input_string t path_len in
+      (cu, path)
+
+    let read_all t =
+      let length = read_size t in
+      Array.init length (fun _ -> read_item t)
+
+    let load path =
+      let fd = open_in_bin path in
+      let version = input_binary_int fd in
+      assert (version = 0x1);
+      {
+        rel_path = Filename.dirname path;
+        entries = read_all fd
+      }
+
+
+    let rec binary_search t left right what =
+      if left > right then None
+      else
+        let mid = (left + right) / 2 in
+        let key, value = t.(mid) in
+        let cmp = String.compare key what in
+        if cmp < 0 then
+          binary_search t (mid + 1) right what
+        else if cmp > 0 then
+          binary_search t left (mid - 1) what
+        else
+          Some value
+
+    let find ~ext ~cu name t =
+      match binary_search t.entries 0 (Array.length t.entries - 1) cu with
+      | Some v ->
+        let path = (Filename.concat t.rel_path (Filename.concat v (name ^ ext))) in
+        if Sys.file_exists path then Some path else None
+      | None -> None
+  end
+
+  let load () =
+    List.map One.load !Clflags.libmap
+
+  let libmap = lazy (load ())
+
+  let clean_cu_name what =
+    let find_first_sep s =
+      let len = String.length s in
+      let rec aux i =
+        if i = len - 1 then None
+        else if String.unsafe_get s i = '_' && String.unsafe_get s (i+1) = '_' then Some i
+        else aux (i + 1)
+      in
+      aux 0
+    in
+    match find_first_sep what with
+    | None -> what
+    | Some i -> String.sub what 0 i
+
+  let find what =
+    let t = Lazy.force libmap in
+    let ext = Filename.extension what in
+    let what = Filename.remove_extension what in
+    let cu = clean_cu_name what in
+    List.find_map (fun one ->
+        One.find ~ext ~cu what one
+      ) t
+end
+
 let find_uncap_with_visibility fn =
   assert (not Config.merlin || Local_store.is_bound ());
-  try
-    if is_basename fn && not !Sys.interactive then
-      find_file_in_cache (String.uncapitalize_ascii fn)
-        visible_files_uncap hidden_files_uncap
-    else
-      try
-        (Misc.find_in_path_uncap (get_visible_path_list ()) fn, Visible)
-      with
-      | Not_found ->
-        (Misc.find_in_path_uncap (get_hidden_path_list ()) fn, Hidden)
-  with Not_found ->
-    let fn_uncap = String.uncapitalize_ascii fn in
-    (!auto_include_callback Dir.find_uncap fn_uncap, Visible)
+  match Libmap.find (String.uncapitalize_ascii fn) with
+  | Some v ->
+    (* CR poechsel: handle hidden*)
+    v, Visible
+  | None ->
+    try
+      if is_basename fn && not !Sys.interactive then
+        find_file_in_cache (String.uncapitalize_ascii fn)
+          visible_files_uncap hidden_files_uncap
+      else
+        try
+          (Misc.find_in_path_uncap (get_visible_path_list ()) fn, Visible)
+        with
+        | Not_found ->
+          (Misc.find_in_path_uncap (get_hidden_path_list ()) fn, Hidden)
+    with Not_found ->
+      let fn_uncap = String.uncapitalize_ascii fn in
+      (!auto_include_callback Dir.find_uncap fn_uncap, Visible)
 
 let find_uncap fn = fst (find_uncap_with_visibility fn)

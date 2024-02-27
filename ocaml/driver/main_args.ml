@@ -153,6 +153,11 @@ let mk_i f =
 let mk_I f =
   "-I", Arg.String f, "<dir>  Add <dir> to the list of include directories"
 
+let mk_libmap f =
+  "-libmap", Arg.String f,
+  "<file>  Set the path of the libmap used to find files"
+;;
+
 let mk_H f =
   "-H", Arg.String f,
   "<dir>  Add <dir> to the list of \"hidden\" include directories\n\
@@ -858,6 +863,7 @@ module type Common_options = sig
   val _no_absname : unit -> unit
   val _alert : string -> unit
   val _I : string -> unit
+  val _libmap : string -> unit
   val _H : string -> unit
   val _labels : unit -> unit
   val _alias_deps : unit -> unit
@@ -1148,6 +1154,7 @@ struct
     mk_stop_after ~native:false F._stop_after;
     mk_i F._i;
     mk_I F._I;
+    mk_libmap F._libmap;
     mk_H F._H;
     mk_impl F._impl;
     mk_intf F._intf;
@@ -1251,6 +1258,7 @@ struct
     mk_no_absname F._no_absname;
     mk_alert F._alert;
     mk_I F._I;
+    mk_libmap F._libmap;
     mk_H F._H;
     mk_init F._init;
     mk_labels F._labels;
@@ -1361,6 +1369,7 @@ struct
     mk_no_probes F._no_probes;
     mk_i F._i;
     mk_I F._I;
+    mk_libmap F._libmap;
     mk_H F._H;
     mk_impl F._impl;
     mk_inline F._inline;
@@ -1505,6 +1514,7 @@ module Make_opttop_options (F : Opttop_options) = struct
     mk_alert F._alert;
     mk_compact F._compact;
     mk_I F._I;
+    mk_libmap F._libmap;
     mk_H F._H;
     mk_init F._init;
     mk_inline F._inline;
@@ -1619,6 +1629,7 @@ struct
     mk_no_absname F._no_absname;
     mk_alert F._alert;
     mk_I F._I;
+    mk_libmap F._libmap;
     mk_H F._H;
     mk_impl F._impl;
     mk_intf F._intf;
@@ -1764,6 +1775,7 @@ module Default = struct
   module Core = struct
     include Common
     let _I dir = include_dirs := dir :: (!include_dirs)
+    let _libmap dir = Clflags.libmap := dir :: !Clflags.libmap
     let _H dir = hidden_include_dirs := dir :: (!hidden_include_dirs)
     let _color = Misc.set_or_ignore color_reader.parse color
     let _dlambda = set dump_lambda
@@ -2010,6 +2022,7 @@ module Default = struct
 
   module Odoc_args = struct
     include Common
+    let _libmap (_:string) = ()
     let _I(_:string) =
       (* placeholder:
          Odoc_global.include_dirs := (s :: (!Odoc_global.include_dirs))

@@ -44,6 +44,7 @@ let dir_directory s =
       !toplevel_env
 
 let _ = Hashtbl.add directive_table "directory" (Directive_string dir_directory)
+
 (* To remove a directory from the load path *)
 let dir_remove_directory s =
   let d = expand_directory Config.standard_library s in

@@ -204,6 +204,7 @@ val afl_instrument : bool ref
 val afl_inst_ratio : int ref
 val function_sections : bool ref
 val probes : bool ref
+val libmap : string list ref
 
 val all_passes : string list ref
 val dumped_pass : string -> bool

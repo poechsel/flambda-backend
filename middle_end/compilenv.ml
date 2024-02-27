@@ -107,7 +107,7 @@ let read_unit_info filename =
     }
     in
     (ui, crc)
-  with End_of_file | Failure _ ->
+  with End_of_file ->
     close_in ic;
     raise(Error(Corrupted_unit_info(filename)))
 
