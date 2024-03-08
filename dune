@@ -80,6 +80,8 @@
   afl_instrument
   arch
   asmgen
+  llvm
+  llvm_selection
   asmlibrarian
   asmlink
   asmpackager

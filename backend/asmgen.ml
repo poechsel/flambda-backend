@@ -456,23 +456,29 @@ let compile_unit ~output_prefix ~asm_filename ~keep_asm ~obj_filename ~may_reduc
 let end_gen_implementation unix ?toplevel ~ppf_dump ~sourcefile make_cmm =
   Emitaux.Dwarf_helpers.init ~disable_dwarf:false sourcefile;
   emit_begin_assembly unix;
-  make_cmm ()
-  ++ Compiler_hooks.execute_and_pipe Compiler_hooks.Cmm
-  ++ Profile.record "compile_phrases" (compile_phrases ~ppf_dump)
-  ++ (fun () -> ());
-  (match toplevel with None -> () | Some f -> compile_genfuns ~ppf_dump f);
-  (* We add explicit references to external primitive symbols.  This
-     is to ensure that the object files that define these symbols,
-     when part of a C library, won't be discarded by the linker.
-     This is important if a module that uses such a symbol is later
-     dynlinked. *)
-  compile_phrase ~ppf_dump
-    (Cmm_helpers.reference_symbols
-       (List.filter_map (fun prim ->
-           if not (Primitive.native_name_is_external prim) then None
-           else Some (Cmm.global_symbol (Primitive.native_name prim)))
-          !Translmod.primitive_declarations));
-  emit_end_assembly sourcefile ()
+  let cmm = 
+    make_cmm ()
+    ++ Compiler_hooks.execute_and_pipe Compiler_hooks.Cmm
+  in
+  if !Flambda_backend_flags.llvm then 
+    Llvm.emit unix ~sourcefile ~ppf_dump cmm
+  else 
+    cmm
+    ++ Profile.record "compile_phrases" (compile_phrases ~ppf_dump)
+    ++ (fun () -> ());
+    (match toplevel with None -> () | Some f -> compile_genfuns ~ppf_dump f);
+    (* We add explicit references to external primitive symbols.  This
+      is to ensure that the object files that define these symbols,
+      when part of a C library, won't be discarded by the linker.
+      This is important if a module that uses such a symbol is later
+      dynlinked. *)
+    compile_phrase ~ppf_dump
+      (Cmm_helpers.reference_symbols
+        (List.filter_map (fun prim ->
+            if not (Primitive.native_name_is_external prim) then None
+            else Some (Cmm.global_symbol (Primitive.native_name prim)))
+            !Translmod.primitive_declarations));
+    emit_end_assembly sourcefile ()
 
 type direct_to_cmm =
      ppf_dump:Format.formatter

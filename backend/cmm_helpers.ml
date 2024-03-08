@@ -540,7 +540,7 @@ let rec div_int c1 c2 is_safe dbg =
     Csequence (c1, raise_symbol dbg "caml_exn_Division_by_zero")
   | c1, Cconst_int (1, _) -> c1
   | Cconst_int (n1, _), Cconst_int (n2, _) -> Cconst_int (n1 / n2, dbg)
-  | c1, Cconst_int (n, _) when n <> min_int ->
+  | c1, Cconst_int (n, _) when n <> min_int && not !Flambda_backend_flags.llvm ->
     let l = Misc.log2 n in
     if n = 1 lsl l
     then
