@@ -1,18 +1,19 @@
 (* TEST
-  flags = "-bin-annot -bin-annot-occurrences"
-  compile_only = "true"
-  readonly_files = "auxiliaire.ml"
-  * setup-ocamlc.byte-build-env
-  all_modules = "auxiliaire.ml index.ml"
-  ** ocamlc.byte
-  *** check-ocamlc.byte-output
+ flags = "-bin-annot -bin-annot-occurrences";
+ compile_only = "true";
+ readonly_files = "auxiliaire.ml";
 
-  program = "-quiet -index -decls index.cmt"
-  output = "out_objinfo"
-
-  **** ocamlobjinfo
-
-  **** check-program-output
+ setup-ocamlc.byte-build-env;
+ all_modules = "auxiliaire.ml index.ml";
+ ocamlc.byte;
+ program = "-quiet -index -decls index.cmt";
+ output = "out_objinfo";
+ check-ocamlc.byte-output;
+ {
+   ocamlobjinfo;
+ }{
+   check-program-output;
+ }
 *)
 
 module type AS = sig
