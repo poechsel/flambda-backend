@@ -12,6 +12,7 @@
 (*                                                                        *)
 (**************************************************************************)
 
+[@@@ocaml.warning "-37"]
 open Asm_targets
 
 (* Some instructions omitted *)
