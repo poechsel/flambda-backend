@@ -40,11 +40,13 @@ let emit0 ~asm_directives ~compilation_unit_proto_die
       ()
   in
   Profile.record "dwarf_world_emit"
-    (fun () ->
-      A.switch_to_section (DWARF Debug_line);
-      Profile.record "debug_line_section"
-        (Debug_line_section.emit ~asm_directives)
-        debug_line;
+    (fun () -> 
+      if Dwarf_flags.debug_thing Dwarf_flags.Debug_source_lines then (
+        A.switch_to_section (DWARF Debug_line);
+        Profile.record "debug_line_section"
+          (Debug_line_section.emit ~asm_directives)
+          debug_line
+      );
       A.switch_to_section (DWARF Debug_info);
       Profile.record "debug_info_section"
         (Debug_info_section.emit ~asm_directives)
